@@ -16,15 +16,16 @@ A local web dashboard to manage Docker from your browser: containers, logs, term
 8. [Networks](#8-networks)
 9. [Events](#9-events)
 10. [Alerts](#10-alerts)
-11. [Keyboard shortcuts](#11-keyboard-shortcuts)
-12. [Theme and language](#12-theme-and-language)
-13. [Usage history and stored data](#13-usage-history-and-stored-data)
-14. [Configuration](#14-configuration)
-15. [Resource usage](#15-resource-usage)
-16. [Security](#16-security)
-17. [Troubleshooting](#17-troubleshooting)
-18. [Uninstall](#18-uninstall)
-19. [For developers](#19-for-developers)
+11. [Disk](#11-disk)
+12. [Keyboard shortcuts](#12-keyboard-shortcuts)
+13. [Theme and language](#13-theme-and-language)
+14. [Usage history and stored data](#14-usage-history-and-stored-data)
+15. [Configuration](#15-configuration)
+16. [Resource usage](#16-resource-usage)
+17. [Security](#17-security)
+18. [Troubleshooting](#18-troubleshooting)
+19. [Uninstall](#19-uninstall)
+20. [For developers](#20-for-developers)
 
 ---
 
@@ -78,7 +79,7 @@ sudo loginctl enable-linger $USER       # if it says Linger=no
 
 ## 3. Interface tour
 
-- **Sidebar** (on top on mobile): the seven sections. At the bottom: connection status (🟢 *Docker connected*), theme, language and help.
+- **Sidebar** (on top on mobile): the eight sections. At the bottom: connection status (🟢 *Docker connected*), theme, language and help.
 - **Main area**: the active section.
 - **Toasts**: bottom right. Success toasts fade on their own; errors stay a bit longer and can be dismissed with ✕.
 - **Confirmations**: every destructive action asks first and explains what will happen.
@@ -265,13 +266,47 @@ The messages use the language selected in the UI, and start with the machine nam
 - Telegram and webhook calls time out after 8 seconds; a failing channel never blocks the others.
 
 
-## 11. Keyboard shortcuts
+## 11. Disk
+
+Docker can quietly fill your disk. The **Disk** section shows where the space goes and lets you free it **safely**.
+
+### What you see
+
+- The total Docker is using, split into **images**, **containers** (their writable layers), **volumes** and **build cache**, with how much of each is reclaimable. The figures match `docker system df`.
+- The first load can take a few seconds on hosts with a lot of data. The result is reused for 15 seconds; **Analyze again** recomputes it.
+
+### What can be cleaned
+
+| Group | What it is | Selected by default |
+|---|---|---|
+| **Unused build cache** | Cache of previous image builds | ✅ yes — harmless, the next build is just slower |
+| **Untagged images** | Leftovers of old builds that have no name | ✅ yes — the safest to delete |
+| **Stopped containers** | Exited or created but never started | ❌ no — they may be intentional; you lose their writable layer, **not** their volumes |
+| **Unused tagged images** | Named images no container uses | ❌ no — you may want to keep them; they can be pulled again |
+| **Unused volumes** | Volumes no container mounts | ❌ no — **they hold data**; deleting is permanent |
+
+### How it stays safe
+
+- **Nothing is deleted until you pick items and confirm.** Pick per item or per group.
+- Items are removed **one by one by the exact id you saw**, never with a global `docker system prune`, so nothing created after the preview is touched.
+- It never uses `force`: Docker refuses to delete anything in use, and Docker Gestor additionally refuses running containers on its own.
+- An image that any container uses (even a stopped one) and a volume that any container mounts are **never offered**.
+- Deleting **volumes** needs an explicit acknowledgement that the data will be lost.
+- If something cannot be removed you get the list with Docker's reason; nothing is reported as removed unless it was.
+- Order: containers → images → volumes → cache. Removing a stopped container can free its image and volume, so after a cleanup the list may show new candidates.
+
+### Sizes are estimates
+
+Like `docker system df`, a layer shared by several images is only freed when every image using it is deleted, so the real space recovered can differ from the estimate.
+
+
+## 12. Keyboard shortcuts
 
 Press `?` anytime. They are ignored while you type in a field or a window is open.
 
 | Key | Action |
 |---|---|
-| `1` – `7` | Switch section |
+| `1` – `8` | Switch section |
 | `/` | Go to search |
 | `n` | New container |
 | `r` | Refresh data |
@@ -280,12 +315,12 @@ Press `?` anytime. They are ignored while you type in a field or a window is ope
 
 The UI is fully keyboard-navigable and respects the system “reduce motion” preference.
 
-## 12. Theme and language
+## 13. Theme and language
 
 - **Theme**: follows your system by default; switch with ☀/🌙 in the sidebar (on mobile, the floating button bottom left). Remembered in the browser.
 - **Language**: English or Spanish. The first visit uses your browser language; switch with the **ES / EN** button next to the theme. Remembered in the browser.
 
-## 13. Usage history and stored data
+## 14. Usage history and stored data
 
 - Every **15 seconds** CPU and memory of running containers are recorded in a SQLite database.
 - Kept for **7 days**; old samples are pruned once an hour.
@@ -296,7 +331,7 @@ The UI is fully keyboard-navigable and respects the system “reduce motion” p
 
 It is a standard SQLite file with a table `samples(ts, name, cpu, mem)` (`ts` in milliseconds), easy to query or back up.
 
-## 14. Configuration
+## 15. Configuration
 
 Optional environment variables:
 
@@ -323,7 +358,7 @@ Environment=RETENTION_DAYS=14
 
 Then `systemctl --user restart docker-gestor`. The bind address `127.0.0.1` is fixed on purpose.
 
-## 15. Resource usage
+## 16. Resource usage
 
 - **No constant polling**: the UI refreshes when Docker emits an event; there is a 60 s fallback refresh.
 - **Only what is needed**: each section requests only its own data; live stats only on *Containers*; nothing is requested while the browser tab is hidden.
@@ -333,7 +368,7 @@ Then `systemctl --user restart docker-gestor`. The bind address `127.0.0.1` is f
 
 Measured with 12 containers and one open tab: **≈ 0.2–0.5 % of a core** and **≈ 55 MB** (cgroup memory). Check yourself with `systemctl --user status docker-gestor` or `systemd-cgtop`.
 
-## 16. Security
+## 17. Security
 
 Controlling Docker is equivalent to having admin rights on the machine. Therefore:
 
@@ -347,7 +382,7 @@ Controlling Docker is equivalent to having admin rights on the machine. Therefor
 
 **Do not expose it to the internet or your network** (tunnels, reverse proxies, `0.0.0.0`) without adding authentication first. The terminal gives root inside the container, and a host-path volume gives access to your files.
 
-## 17. Troubleshooting
+## 18. Troubleshooting
 
 | Symptom | Likely cause and fix |
 |---|---|
@@ -363,10 +398,12 @@ Controlling Docker is equivalent to having admin rights on the machine. Therefor
 | Deleting an image / volume / network fails | In use by a container; Docker's message says so |
 | No Telegram / webhook alerts | Open **Alerts** and use *Send test*: the section shows the last error of each channel. Check the token, chat ID and that you sent your bot a message first |
 | An alert fires for something I did | Only stops/restarts/removals are recognised as intentional; a `docker kill` is treated as a crash |
+| The Disk section is slow the first time | Docker computes sizes on demand; it can take several seconds with many images or volumes. Results are cached for 15 s |
+| Something could not be cleaned | It is in use: the list shows Docker's reason. Stop and remove the container that uses it first |
 | Does not start at boot | Missing linger: `sudo loginctl enable-linger $USER` |
 | Service restarts itself | May have hit the 256 MB memory limit: check `journalctl --user -u docker-gestor` |
 
-## 18. Uninstall
+## 19. Uninstall
 
 ```bash
 systemctl --user disable --now docker-gestor
@@ -379,7 +416,7 @@ rm -rf ~/.local/share/docker-gestor
 
 This does not touch your containers, images, volumes or networks.
 
-## 19. For developers
+## 20. For developers
 
 ### Layout
 
@@ -394,6 +431,8 @@ src/lib/socket.mjs            Docker endpoint detection (Linux / macOS / Windows
 src/lib/history.ts            Sampling and SQLite queries
 src/lib/alerts-core.mjs       Alert rules and config validation (pure, unit-tested)
 src/lib/alerts.ts             Alert I/O: Docker watcher, Telegram, webhook, storage
+src/lib/disk-core.mjs         Disk usage analysis and cleanup validation (pure, unit-tested)
+src/lib/disk.ts               Disk report and per-item cleanup
 src/app/page.tsx              The UI (sections)
 src/app/ui.tsx                Shared components: buttons, modal, toasts, confirmations, icons
 src/app/i18n.ts + locales/    Translations (one file per language)
@@ -415,6 +454,8 @@ src/app/api/**                REST API and SSE streams
 | `/alerts/test` | POST | Send a test through `telegram` or `webhook` |
 | `/alerts/history` | GET | Recent alerts |
 | `/alerts/stream` | GET (SSE) | New alerts for the browser channel |
+| `/disk` | GET | Disk usage report and cleanup candidates (`?fresh=1` skips the 15 s cache) |
+| `/disk/clean` | POST | Remove the selected containers, images, volumes and build cache |
 | `/compose` | GET, POST | List stacks / `up`, `down`, `restart`, `stop`, `pull` |
 | `/images` | GET, POST, DELETE | List / pull / delete |
 | `/volumes` | GET, DELETE | List / delete |
@@ -428,7 +469,7 @@ Connection errors answer `503` with a `code` (`docker_unreachable`, `docker_deni
 ```bash
 systemctl --user stop docker-gestor     # frees port 4455
 npm run dev                             # hot reload
-npm run typecheck && npm test && npm run smoke && npm run e2e:alerts
+npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk
 ```
 
 No Docker at hand? Run the fake API: `node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &` then `DOCKER_SOCKET=/tmp/docker-mock.sock npm run dev`.

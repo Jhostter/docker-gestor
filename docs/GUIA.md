@@ -14,15 +14,16 @@ Panel web local para gestionar Docker desde el navegador: contenedores, logs, te
 8. [Redes](#8-redes)
 9. [Eventos](#9-eventos)
 10. [Alertas](#10-alertas)
-11. [Atajos de teclado](#11-atajos-de-teclado)
-12. [Tema e idioma](#12-tema-e-idioma)
-13. [Historial de consumo y datos guardados](#13-historial-de-consumo-y-datos-guardados)
-14. [Configuración](#14-configuración)
-15. [Consumo de recursos](#15-consumo-de-recursos)
-16. [Seguridad](#16-seguridad)
-17. [Solución de problemas](#17-solución-de-problemas)
-18. [Desinstalar](#18-desinstalar)
-19. [Para desarrolladores](#19-para-desarrolladores)
+11. [Disco](#11-disco)
+12. [Atajos de teclado](#12-atajos-de-teclado)
+13. [Tema e idioma](#13-tema-e-idioma)
+14. [Historial de consumo y datos guardados](#14-historial-de-consumo-y-datos-guardados)
+15. [Configuración](#15-configuración)
+16. [Consumo de recursos](#16-consumo-de-recursos)
+17. [Seguridad](#17-seguridad)
+18. [Solución de problemas](#18-solución-de-problemas)
+19. [Desinstalar](#19-desinstalar)
+20. [Para desarrolladores](#20-para-desarrolladores)
 
 ---
 
@@ -83,7 +84,7 @@ sudo loginctl enable-linger $USER       # si dice Linger=no
 
 ## 3. Recorrido por la interfaz
 
-- **Barra lateral** (arriba en móvil): las siete secciones. En la parte inferior verás el estado de la conexión (🟢 *Docker conectado*), el cambio de tema, el selector de idioma y la ayuda.
+- **Barra lateral** (arriba en móvil): las ocho secciones. En la parte inferior verás el estado de la conexión (🟢 *Docker conectado*), el cambio de tema, el selector de idioma y la ayuda.
 - **Zona principal**: el contenido de la sección activa.
 - **Avisos**: aparecen abajo a la derecha. Los de éxito desaparecen solos; los de error permanecen unos segundos más y puedes cerrarlos con ✕.
 - **Confirmaciones**: toda acción destructiva (eliminar, bajar un stack…) pide confirmación explícita y te explica qué ocurrirá.
@@ -271,13 +272,47 @@ Los mensajes usan el idioma elegido en la interfaz y empiezan por el nombre del 
 - Las llamadas a Telegram y al webhook caducan a los 8 segundos; un canal que falle nunca bloquea a los demás.
 
 
-## 11. Atajos de teclado
+## 11. Disco
+
+Docker puede llenar el disco sin que te des cuenta. La sección **Disco** muestra adónde va el espacio y te deja liberarlo **con seguridad**.
+
+### Qué ves
+
+- El total que usa Docker, dividido en **imágenes**, **contenedores** (sus capas de escritura), **volúmenes** y **caché de compilación**, con lo que se puede recuperar de cada uno. Las cifras coinciden con `docker system df`.
+- La primera carga puede tardar unos segundos si hay mucho contenido. El resultado se reutiliza durante 15 segundos; **Analizar de nuevo** lo recalcula.
+
+### Qué se puede limpiar
+
+| Grupo | Qué es | Marcado por defecto |
+|---|---|---|
+| **Caché de compilación sin usar** | Caché de compilaciones anteriores | ✅ sí — inofensivo, solo hace más lenta la próxima compilación |
+| **Imágenes sin etiqueta** | Restos de compilaciones antiguas sin nombre | ✅ sí — lo más seguro de borrar |
+| **Contenedores detenidos** | Terminados o creados y nunca iniciados | ❌ no — pueden ser intencionados; pierdes su capa de escritura, **no** sus volúmenes |
+| **Imágenes sin usar con etiqueta** | Imágenes con nombre que ningún contenedor usa | ❌ no — quizá quieras conservarlas; se pueden volver a descargar |
+| **Volúmenes sin usar** | Volúmenes que ningún contenedor monta | ❌ no — **contienen datos**; borrarlos es permanente |
+
+### Cómo se mantiene seguro
+
+- **No se borra nada hasta que eliges elementos y confirmas.** Puedes elegir por elemento o por grupo.
+- Los elementos se eliminan **uno a uno por el identificador exacto que viste**, nunca con un `docker system prune` global, así que no se toca nada creado después de la vista previa.
+- Nunca usa `force`: Docker se niega a borrar lo que está en uso, y además Docker Gestor rechaza por su cuenta los contenedores en marcha.
+- Una imagen que use cualquier contenedor (incluso detenido) y un volumen que monte cualquier contenedor **nunca se ofrecen**.
+- Borrar **volúmenes** exige reconocer expresamente que los datos se perderán.
+- Si algo no se puede eliminar, recibes la lista con el motivo que da Docker; nada se da por eliminado si no lo está.
+- Orden: contenedores → imágenes → volúmenes → caché. Borrar un contenedor detenido puede liberar su imagen y su volumen, así que tras una limpieza la lista puede mostrar candidatos nuevos.
+
+### Los tamaños son estimaciones
+
+Igual que en `docker system df`, una capa compartida por varias imágenes solo se libera cuando se borran todas las que la usan, así que el espacio realmente recuperado puede diferir de la estimación.
+
+
+## 12. Atajos de teclado
 
 Pulsa `?` en cualquier momento para verlos. No actúan mientras escribes en un campo ni con una ventana abierta.
 
 | Tecla | Acción |
 |---|---|
-| `1` – `7` | Cambiar de sección |
+| `1` – `8` | Cambiar de sección |
 | `/` | Ir al buscador |
 | `n` | Nuevo contenedor |
 | `r` | Refrescar datos |
@@ -286,14 +321,14 @@ Pulsa `?` en cualquier momento para verlos. No actúan mientras escribes en un c
 
 La interfaz es totalmente navegable con teclado (`Tab`/`Shift+Tab`, `Enter`) y respeta la preferencia del sistema de «reducir animaciones».
 
-## 12. Tema e idioma
+## 13. Tema e idioma
 
 - **Tema**: por defecto sigue el de tu sistema. Cambia con el icono ☀/🌙 de la barra lateral (en móvil, el botón flotante abajo a la izquierda); se recuerda en el navegador.
 - **Idioma**: español o inglés. La primera vez se usa el idioma del navegador; cambia con el botón **ES / EN** junto al tema. También se recuerda.
 
 > Versión en inglés de esta guía: [GUIDE.md](GUIDE.md).
 
-## 13. Historial de consumo y datos guardados
+## 14. Historial de consumo y datos guardados
 
 - Cada **15 segundos** se registra CPU y memoria de los contenedores en marcha en una base SQLite.
 - Se conservan **7 días**; una vez por hora se borran las muestras más antiguas.
@@ -305,7 +340,7 @@ La interfaz es totalmente navegable con teclado (`Tab`/`Shift+Tab`, `Enter`) y r
 
 Para consultar o respaldar los datos: es un archivo SQLite estándar con la tabla `samples(ts, name, cpu, mem)` (`ts` en milisegundos).
 
-## 14. Configuración
+## 15. Configuración
 
 Variables de entorno (todas opcionales):
 
@@ -340,7 +375,7 @@ Para cambiar el puerto basta con `PORT` (la lista de hosts permitidos lo sigue a
 
 **macOS y Windows:** ver [PLATFORMS.md](PLATFORMS.md) para la compatibilidad (probado a diario solo en Linux), la detección de Docker y cómo dejarlo en marcha.
 
-## 15. Consumo de recursos
+## 16. Consumo de recursos
 
 El diseño prioriza no molestar a tu máquina:
 
@@ -364,7 +399,7 @@ systemctl --user status docker-gestor      # muestra Memory y CPU
 systemd-cgtop                              # vista en vivo
 ```
 
-## 16. Seguridad
+## 17. Seguridad
 
 Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso:
 
@@ -378,7 +413,7 @@ Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso
 
 **No expongas este panel a internet ni a tu red** (túneles, proxys inversos, `0.0.0.0`) sin antes añadir autenticación. La terminal da acceso de administrador dentro del contenedor, y un volumen con ruta del equipo da acceso a tus archivos.
 
-## 17. Solución de problemas
+## 18. Solución de problemas
 
 | Síntoma | Causa probable y solución |
 |---|---|
@@ -394,10 +429,12 @@ Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso
 | Eliminar imagen/volumen/red falla | Está en uso por algún contenedor. El mensaje de Docker lo indica |
 | No llegan alertas por Telegram / webhook | Abre **Alertas** y usa *Enviar prueba*: la sección muestra el último error de cada canal. Revisa el token, el ID de chat y que hayas escrito antes a tu bot |
 | Salta una alerta por algo que hice yo | Solo se reconocen como intencionados los stop, restart y eliminaciones; un `docker kill` cuenta como caída |
+| La sección Disco tarda la primera vez | Docker calcula los tamaños bajo demanda; con muchas imágenes o volúmenes pueden ser varios segundos. El resultado se guarda 15 s |
+| Algo no se pudo limpiar | Está en uso: la lista muestra el motivo de Docker. Detén y elimina antes el contenedor que lo usa |
 | No arranca al encender el equipo | Falta el *linger*: `sudo loginctl enable-linger $USER` |
 | El servicio se reinicia solo | Puede haber llegado al límite de memoria (256 MB): mira `journalctl --user -u docker-gestor` |
 
-## 18. Desinstalar
+## 19. Desinstalar
 
 ```bash
 systemctl --user disable --now docker-gestor
@@ -410,7 +447,7 @@ rm -rf ~/.local/share/docker-gestor
 
 Esto no toca tus contenedores, imágenes, volúmenes ni redes.
 
-## 19. Para desarrolladores
+## 20. Para desarrolladores
 
 ### Estructura
 
@@ -422,6 +459,8 @@ src/lib/docker.ts             Cliente de Docker, validación de Host/Origin, uti
 src/lib/history.ts            Muestreo y consultas SQLite
 src/lib/alerts-core.mjs       Reglas de alertas y validación (puro, con pruebas)
 src/lib/alerts.ts             E/S de alertas: vigilancia de Docker, Telegram, webhook, almacenamiento
+src/lib/disk-core.mjs         Análisis de uso de disco y validación de limpieza (puro, con pruebas)
+src/lib/disk.ts               Informe de disco y limpieza elemento a elemento
 src/app/page.tsx              Interfaz (secciones)
 src/app/ui.tsx                Componentes comunes: botones, modal, avisos, confirmaciones, iconos
 src/app/i18n.ts + locales/    Traducciones (un archivo por idioma)
@@ -444,6 +483,8 @@ src/app/api/**                API REST y flujos SSE
 | `/alerts/test` | POST | Envía una prueba por `telegram` o `webhook` |
 | `/alerts/history` | GET | Alertas recientes |
 | `/alerts/stream` | GET (SSE) | Alertas nuevas para el canal del navegador |
+| `/disk` | GET | Informe de uso de disco y candidatos a limpiar (`?fresh=1` omite la caché de 15 s) |
+| `/disk/clean` | POST | Elimina los contenedores, imágenes, volúmenes y caché de compilación elegidos |
 | `/compose` | GET, POST | Listar stacks / `up`, `down`, `restart`, `stop`, `pull` |
 | `/images` | GET, POST, DELETE | Listar / descargar / eliminar |
 | `/volumes` | GET, DELETE | Listar / eliminar |

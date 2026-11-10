@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Disk** section: how much space Docker uses (images, containers, volumes, build cache) and how much is reclaimable, with figures that match `docker system df`.
+- **Safe cleanup** with a preview: unused build cache, untagged images, stopped containers, unused tagged images and unused volumes. Only the build cache and untagged images are pre-selected; volumes need an explicit data-loss acknowledgement.
+- Items are removed one by one by id (never a global prune) and without `force`; Docker Gestor also refuses running containers itself, and failures are listed with Docker's reason.
+- Unit tests for the analysis and validation, and `npm run e2e:disk` (runs in CI on Linux).
+
 ## [0.2.0] - 2026-11-10
 
 ### Added
