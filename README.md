@@ -29,6 +29,8 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 
 ## Features
 
+- **Fast to drive** — a **command palette** (`Ctrl`/`⌘`+`K`) to jump to any container, section or action, a **⋯ menu** per row (Start/Stop and Logs stay one click away), a **compact view** that fits a whole stack on screen, a grouped sidebar and loading skeletons. Fully keyboard-accessible.
+- **Stays current by itself** — follows Docker's events, so changes made anywhere show up without reloading the page; it reconnects after Docker or the network drops, catches up during event bursts and never lets a slow, outdated response overwrite newer data.
 - **Containers** — list, search, filter, group by Compose stack; start / stop / restart / remove; clickable published ports; live CPU and memory per container.
 - **Manage by stack or selection** — start, stop or restart a whole group (or any selection) in one click, **in dependency order** when Compose declares it (database before API, reverse to stop) **waiting for a service to be healthy** before starting what depends on it, with a **live progress panel** (what it is waiting for, how long) and a **Cancel** button. Works for any group, including stacks Compose cannot manage, and for **your own groups** (create them from a selection or by **drag and drop**, rename, merge, dissolve — containers are never touched).
 - **Live logs** — streaming, filtering, timestamps toggle, error/warning highlighting, download.
@@ -49,6 +51,8 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 | | |
 |---|---|
 | ![Containers, dark](docs/img/containers-dark.png) **Containers** (dark) | ![Containers, light](docs/img/containers-light.png) **Containers** (light) |
+| ![Command palette](docs/img/palette.png) **Command palette** (`Ctrl`/`⌘` + `K`) | ![Row menu](docs/img/row-menu.png) **Row actions menu** |
+| ![Compact view](docs/img/containers-compact.png) **Compact view** | |
 | ![Live logs](docs/img/logs.png) **Live logs** | ![Usage chart](docs/img/chart.png) **Usage history** |
 | ![Create container](docs/img/create.png) **Create a container** | ![Compose](docs/img/compose.png) **Compose stacks** |
 | ![Events](docs/img/events.png) **Live events** | ![Alerts](docs/img/alerts.png) **Alerts** (Telegram, webhook, browser) |
@@ -162,6 +166,8 @@ npm run e2e:custom-groups   # custom groups end-to-end (persistence, rename/merg
 npm run e2e:dnd      # drag and drop with a real mouse drag (needs Chrome/Chromium)
 npm run e2e:health   # group start waits for healthy dependencies (real timings)
 npm run e2e:progress # live progress stream and cancelling a group action
+npm run e2e:ui       # interface structure, row menu, command palette, density, skeleton (needs Chrome/Chromium)
+npm run e2e:resilience # stays current: Docker outage, event bursts, late responses (needs Chrome/Chromium)
 ```
 
 Stack: Next.js (App Router) · React · Tailwind CSS 4 · dockerode · `node:sqlite` · ws · xterm.js. UI strings live in `src/app/locales/` (adding a language is one file).

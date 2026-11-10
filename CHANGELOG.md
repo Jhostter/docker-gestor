@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **The interface no longer gets stuck on an old state after stopping or starting containers.** Several causes, each with its own test:
+  - The events stream gave up for good when Docker briefly failed (a browser `EventSource` never reconnects after an HTTP error). The server now always answers 200 and tells the browser when to retry; the page also reconnects by itself with growing waits, and refreshes the moment it is back.
+  - An old, slow response could arrive last and overwrite newer data; only the newest response per resource is applied now.
+  - A burst of events (stopping a whole stack) postponed the refresh until the burst ended; it now refreshes at a bounded rate.
+  - After an action it refreshes immediately and again about 1.5 s later, in case Docker is slow to show the new state. An open *Details* window updates itself every few seconds.
+  - A failing poll raised an error notice each time; there is now one until something works again.
+- When Docker (not the server) is unreachable the page says so with an amber *Docker is not responding* notice, instead of the misleading red "connection lost".
+- The log stream of a container that is gone ends cleanly instead of failing with an HTTP error.
+
+### Changed
+- **Redesigned interface.** Each row keeps *Start/Stop* and *Logs* and moves the rest into a **⋯ menu** (Details, Restart, Terminal, Usage chart, Delete), fully keyboard-accessible; a coloured stripe shows the state at a glance; ports are chips.
+- **Command palette** (`Ctrl`/`⌘`+`K`): jump to any section, container or action with a forgiving search (every word, any order, accent-insensitive, abbreviations).
+- Sidebar organised in **Manage** and **Observe**, with a search button; every page has a title; loading skeletons replace the "Loading…" text.
+- **Compact view** (one line per container), remembered; the toolbar is tidier and the mobile checkbox is aligned.
+- `npm run e2e:ui` and `npm run e2e:resilience`: browser tests with negative controls (they fail when the fixes are removed); both run in CI on Linux.
+
 ## [0.7.0] - 2026-11-10
 
 ### Added

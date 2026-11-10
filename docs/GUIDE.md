@@ -79,13 +79,35 @@ sudo loginctl enable-linger $USER       # if it says Linger=no
 
 ## 3. Interface tour
 
-- **Sidebar** (on top on mobile): the eight sections. At the bottom: connection status (🟢 *Docker connected*), theme, language and help.
-- **Main area**: the active section.
+- **Sidebar** (on top on mobile): the eight sections in two groups, **Manage** (Containers, Compose, Images, Volumes, Networks) and **Observe** (Events, Alerts, Disk), with a search button at the top. At the bottom: connection status (🟢 *Docker connected*), theme, language and help.
+- **Main area**: the active section, with its title.
 - **Toasts**: bottom right. Success toasts fade on their own; errors stay a bit longer and can be dismissed with ✕.
 - **Confirmations**: every destructive action asks first and explains what will happen.
 - **Windows**: close with `Esc`, ✕, or by clicking outside (the terminal is the exception).
+- **Loading**: while data arrives you see placeholder rows (a skeleton), so the layout does not jump.
 
 The browser tab title shows how many containers are running: `(12) Docker Gestor`.
+
+### Command palette
+
+Press **`Ctrl`+`K`** (**`⌘`+`K`** on a Mac) anywhere, even while typing in a field, or use the search button at the top of the sidebar. Type what you want and press `Enter`:
+
+- **Sections**: `images`, `disk`, `alerts`…
+- **Containers**: `logs api` finds *Logs · shop-api*; every container offers *Details*, *Logs*, *Terminal* (if running) and *Start/Stop*.
+- **Actions**: new container, refresh, toggle theme, change language, help.
+
+Every word you type has to match (in any order), accents and case are ignored, and a long enough abbreviation works too (`shwb` finds *shop-web*). `↑` `↓` move, `Enter` runs, `Esc` closes, and `Ctrl`+`K` again closes it.
+
+### It keeps itself up to date
+
+The interface follows Docker through its event stream, so a container you start, stop or remove from the command line, Compose or another tool shows up within a second **without reloading the page**. It also catches up by itself when:
+
+- **Docker stops answering for a while** (it restarts, the machine wakes up…): an amber notice says *Docker is not responding* and the page reconnects on its own, refreshing as soon as Docker is back. A red notice means the **Docker Gestor service** itself was lost, which is a different thing.
+- **Many events arrive at once** (stopping a whole stack): it refreshes at a steady pace instead of waiting for the storm to end.
+- **A slow, outdated answer arrives late**: it never overwrites newer data.
+- **You come back to the tab** after a while.
+
+After an action it refreshes immediately and once more a moment later, in case Docker takes a beat to show the new state. An open *Details* window updates itself too.
 
 ## 4. Containers
 
@@ -101,23 +123,31 @@ Four summary cards on top: running containers, total CPU, memory in use and numb
 
 | Element | Meaning |
 |---|---|
-| Name and image | Hover for the full text |
-| Links `:8080:80 ↗` | Published ports. TCP ones open `http://localhost:<port>` in a new tab |
+| Coloured stripe | The state at a glance: green running, red unhealthy, amber starting or other, grey stopped |
+| Name and image | Click the name for the details; hover for the full text |
+| Ports `:8080:80 ↗` | Published ports as chips. TCP ones open `http://localhost:<port>` in a new tab |
 | Status badge | 🟢 Running · 🟡 Starting / other · 🔴 unhealthy · ⚪ Stopped |
 | CPU and RAM | Current usage with a bar; refreshed every 10 s, only while you are on this section |
 
-### Action buttons
+### Row actions
 
-| Icon | Action |
+The two you use most are on the row; everything else is in the **⋯** menu.
+
+| Control | Action |
 |---|---|
 | ▶ / ■ | Start or stop |
-| ⟳ | Restart |
 | 📄 | **View logs** |
-| ›_ | **Open terminal** (running containers only) |
-| 📊 | **Usage chart** |
-| 🗑 | Delete (asks first) |
+| **⋯** → Details | The container's [details](#container-details) |
+| **⋯** → Restart | Restart |
+| **⋯** → Open terminal | **Terminal** (running containers only) |
+| **⋯** → Usage chart | **Usage chart** |
+| **⋯** → Delete | Delete (asks first), in red and set apart |
+
+The menu is fully keyboard-driven: `Enter` or `↓` on the **⋯** button opens it, `↑` `↓` `Home` `End` move, `Enter` chooses, `Esc` closes it and puts the focus back on the button. It opens upwards when there is no room below.
 
 While an action runs, its button shows a spinner and is disabled.
+
+**Density.** The button next to *Group by* switches between a **comfortable** view and a **compact** one (one line per container, so a whole stack fits on screen). It is remembered.
 
 ### Logs
 
@@ -368,6 +398,7 @@ Press `?` anytime. They are ignored while you type in a field or a window is ope
 
 | Key | Action |
 |---|---|
+| `Ctrl`/`⌘` + `K` | **Command palette** (works everywhere, even while typing) |
 | `1` – `8` | Switch section |
 | `/` | Go to search |
 | `n` | New container |
@@ -503,7 +534,9 @@ src/lib/inspect-core.mjs       Container details shaping and secret masking (pur
 src/lib/disk-core.mjs         Disk usage analysis and cleanup validation (pure, unit-tested)
 src/lib/disk.ts               Disk report and per-item cleanup
 src/app/page.tsx              The UI (sections)
-src/app/ui.tsx                Shared components: buttons, modal, toasts, confirmations, icons
+src/app/ui.tsx                Shared components: buttons, modal, toasts, confirmations, icons, actions menu, skeletons
+src/app/Palette.tsx           Command palette (Ctrl/⌘+K)
+src/lib/palette-core.mjs      Palette search and ranking (pure, unit-tested)
 src/app/i18n.ts + locales/    Translations (one file per language)
 src/app/{Logs,Terminal,HistoryChart,CreateForm}.tsx   Windows
 src/app/api/**                REST API and SSE streams
@@ -542,7 +575,7 @@ Connection errors answer `503` with a `code` (`docker_unreachable`, `docker_deni
 ```bash
 systemctl --user stop docker-gestor     # frees port 4455
 npm run dev                             # hot reload
-npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups && npm run e2e:custom-groups && npm run e2e:dnd && npm run e2e:health && npm run e2e:progress
+npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups && npm run e2e:custom-groups && npm run e2e:dnd && npm run e2e:health && npm run e2e:progress && npm run e2e:ui && npm run e2e:resilience
 ```
 
 No Docker at hand? Run the fake API: `node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &` then `DOCKER_SOCKET=/tmp/docker-mock.sock npm run dev`.

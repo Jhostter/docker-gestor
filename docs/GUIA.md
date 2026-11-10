@@ -84,13 +84,35 @@ sudo loginctl enable-linger $USER       # si dice Linger=no
 
 ## 3. Recorrido por la interfaz
 
-- **Barra lateral** (arriba en móvil): las ocho secciones. En la parte inferior verás el estado de la conexión (🟢 *Docker conectado*), el cambio de tema, el selector de idioma y la ayuda.
-- **Zona principal**: el contenido de la sección activa.
+- **Barra lateral** (arriba en móvil): las ocho secciones en dos grupos, **Gestionar** (Contenedores, Compose, Imágenes, Volúmenes, Redes) y **Observar** (Eventos, Alertas, Disco), con un botón de búsqueda arriba. En la parte inferior verás el estado de la conexión (🟢 *Docker conectado*), el cambio de tema, el selector de idioma y la ayuda.
+- **Zona principal**: la sección activa, con su título.
 - **Avisos**: aparecen abajo a la derecha. Los de éxito desaparecen solos; los de error permanecen unos segundos más y puedes cerrarlos con ✕.
 - **Confirmaciones**: toda acción destructiva (eliminar, bajar un stack…) pide confirmación explícita y te explica qué ocurrirá.
 - **Ventanas**: se cierran con `Esc`, con ✕ o haciendo clic fuera (la terminal es la excepción, ver más abajo).
+- **Carga**: mientras llegan los datos ves filas de relleno (un esqueleto), así el diseño no da saltos.
 
 El título de la pestaña del navegador muestra cuántos contenedores están en marcha: `(12) Docker Gestor`.
+
+### Paleta de comandos
+
+Pulsa **`Ctrl`+`K`** (**`⌘`+`K`** en Mac) en cualquier momento, incluso escribiendo en un campo, o usa el botón de búsqueda de la parte superior de la barra lateral. Escribe lo que quieras y pulsa `Enter`:
+
+- **Secciones**: `imágenes`, `disco`, `alertas`…
+- **Contenedores**: `logs api` encuentra *Logs · shop-api*; cada contenedor ofrece *Detalles*, *Logs*, *Terminal* (si está en marcha) e *Iniciar/Detener*.
+- **Acciones**: nuevo contenedor, refrescar, cambiar tema, cambiar idioma, ayuda.
+
+Cada palabra que escribas tiene que coincidir (en cualquier orden), se ignoran mayúsculas y acentos, y también vale una abreviatura suficientemente larga (`shwb` encuentra *shop-web*). `↑` `↓` se mueven, `Enter` ejecuta, `Esc` cierra y `Ctrl`+`K` otra vez también la cierra.
+
+### Se mantiene actualizada sola
+
+La interfaz sigue a Docker mediante su flujo de eventos, así que un contenedor que inicies, detengas o elimines desde la línea de comandos, Compose u otra herramienta aparece en menos de un segundo **sin recargar la página**. También se pone al día sola cuando:
+
+- **Docker deja de responder un rato** (se reinicia, el equipo despierta…): un aviso ámbar dice *Docker no responde* y la página reconecta por sí misma, refrescando en cuanto Docker vuelve. Un aviso rojo significa que se perdió el **servicio de Docker Gestor** en sí, que es otra cosa.
+- **Llegan muchos eventos a la vez** (detener un stack entero): refresca a un ritmo constante en lugar de esperar a que acabe la tormenta.
+- **Llega tarde una respuesta lenta y ya antigua**: nunca pisa datos más nuevos.
+- **Vuelves a la pestaña** pasado un tiempo.
+
+Tras una acción refresca al instante y una vez más poco después, por si Docker tarda un momento en mostrar el nuevo estado. Una ventana de *Detalles* abierta también se actualiza sola.
 
 ## 4. Contenedores
 
@@ -106,23 +128,31 @@ La sección principal. Arriba hay cuatro tarjetas de resumen: contenedores en ma
 
 | Elemento | Qué significa |
 |---|---|
-| Nombre e imagen | Pasa el ratón para ver el texto completo |
-| Enlaces `:8080:80 ↗` | Puertos publicados. Los TCP son clicables y abren `http://localhost:<puerto>` en otra pestaña |
+| Franja de color | El estado de un vistazo: verde en marcha, rojo *unhealthy*, ámbar arrancando u otro, gris detenido |
+| Nombre e imagen | Haz clic en el nombre para ver los detalles; pasa el ratón para ver el texto completo |
+| Puertos `:8080:80 ↗` | Puertos publicados como etiquetas. Los TCP son clicables y abren `http://localhost:<puerto>` en otra pestaña |
 | Insignia de estado | 🟢 En marcha · 🟡 Arrancando / pausado · 🔴 *unhealthy* (falla su comprobación de salud) · ⚪ Detenido |
 | CPU y RAM | Uso actual, con barra. Se actualiza cada 10 s y solo mientras estás en esta sección |
 
-### Botones de acción
+### Acciones de la fila
 
-| Icono | Acción |
+Las dos que más usas están en la fila; el resto, en el menú **⋯**.
+
+| Control | Acción |
 |---|---|
 | ▶ / ■ | Iniciar o detener |
-| ⟳ | Reiniciar |
 | 📄 | **Ver logs** |
-| ›_ | **Abrir terminal** (solo si está en marcha) |
-| 📊 | **Gráfica de consumo** |
-| 🗑 | Eliminar (pide confirmación) |
+| **⋯** → Detalles | Los [detalles](#detalles-del-contenedor) del contenedor |
+| **⋯** → Reiniciar | Reiniciar |
+| **⋯** → Abrir terminal | **Terminal** (solo si está en marcha) |
+| **⋯** → Gráfica de consumo | **Gráfica de consumo** |
+| **⋯** → Eliminar | Eliminar (pide confirmación), en rojo y separado |
+
+El menú se maneja por completo con el teclado: `Enter` o `↓` sobre el botón **⋯** lo abre, `↑` `↓` `Inicio` `Fin` se mueven, `Enter` elige, `Esc` lo cierra y devuelve el foco al botón. Se abre hacia arriba si no hay sitio debajo.
 
 Mientras una acción se ejecuta, el botón muestra un indicador y se desactiva para evitar dobles clics.
+
+**Densidad.** El botón junto a *Agrupar por* alterna entre una vista **cómoda** y otra **compacta** (una línea por contenedor, así cabe un stack entero en pantalla). Se recuerda.
 
 ### Ver logs
 
@@ -374,6 +404,7 @@ Pulsa `?` en cualquier momento para verlos. No actúan mientras escribes en un c
 
 | Tecla | Acción |
 |---|---|
+| `Ctrl`/`⌘` + `K` | **Paleta de comandos** (funciona en cualquier sitio, incluso escribiendo) |
 | `1` – `8` | Cambiar de sección |
 | `/` | Ir al buscador |
 | `n` | Nuevo contenedor |
@@ -531,7 +562,9 @@ src/lib/inspect-core.mjs       Detalles del contenedor y enmascarado de secretos
 src/lib/disk-core.mjs         Análisis de uso de disco y validación de limpieza (puro, con pruebas)
 src/lib/disk.ts               Informe de disco y limpieza elemento a elemento
 src/app/page.tsx              Interfaz (secciones)
-src/app/ui.tsx                Componentes comunes: botones, modal, avisos, confirmaciones, iconos
+src/app/ui.tsx                Componentes comunes: botones, modal, avisos, confirmaciones, iconos, menú de acciones, esqueletos
+src/app/Palette.tsx           Paleta de comandos (Ctrl/⌘+K)
+src/lib/palette-core.mjs      Búsqueda y ordenación de la paleta (puro, con pruebas)
 src/app/i18n.ts + locales/    Traducciones (un archivo por idioma)
 src/app/{Logs,Terminal,HistoryChart,CreateForm}.tsx   Ventanas
 src/app/globals.css           Tokens de tema claro/oscuro
