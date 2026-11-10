@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-10
 
 ### Added
 - **Custom groups.** A new *Group by* selector (**Stack** / **My groups** / **None**, remembered). In *My groups* you create groups from a selection (*Move to group…*), rename them (renaming into an existing group merges), remove containers from them and dissolve them; **dissolving never touches the containers**. Custom groups get the same start all / stop all / restart all, dependency-aware ordering, selection and collapsing as stacks.
