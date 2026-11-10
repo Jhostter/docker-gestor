@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Group start and restart now wait for healthy dependencies.** When Compose declares `service_healthy` (or `service_completed_successfully`), dependents start only after the dependency is ready, like `docker compose up`. If it never gets ready, the dependents (and whatever depends on them) are **not started** and the failure window explains why (timed out, became unhealthy, stopped), translated into your language.
+- Dependencies are also waited for when they are **outside the selection** (e.g. *Start all* on only the stopped containers), and a stopped dependency makes the dependent be refused rather than started without it.
+- `HEALTH_WAIT_SECONDS` (default 90, 1-600). Unhealthy or stopped dependencies fail immediately instead of waiting out the timeout. A dependency with no health check is not waited for; stopping and deleting never wait.
+- `npm run e2e:health`, with real timings and a negative control (10 checks fail when the waiting is disabled); runs in CI on Linux.
+
+### Fixed
+- **Dependencies were matched by service name only, across projects.** Selecting two Compose stacks that both have a `db` could order one stack's API after the other stack's database. They are now resolved inside the same Compose project.
+
 ## [0.5.0] - 2026-11-10
 
 ### Added

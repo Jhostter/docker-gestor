@@ -153,6 +153,11 @@ Containers are grouped by Compose stack (switch it off with *Group by stack*). E
 
 **Order matters.** When Compose declares dependencies (`depends_on`), Docker Gestor follows them: it **starts** the database and cache first, then the API, then the web server, and **stops** in the reverse order. Containers in the same layer run in parallel, so a big stack is still fast. Without dependency information (or for containers outside Compose) everything runs at once. Restart follows the start order.
 
+**Waiting for a service to be ready.** If Compose declares a dependency as `service_healthy` (or `service_completed_successfully`, typical for one-off setup containers), starting or restarting a group **waits** for it before starting what depends on it, exactly like `docker compose up` does. If the dependency never gets ready, whatever depends on it is **not started** (and neither is whatever depends on that), and the failure window says why: it timed out, it became unhealthy, or it stopped. A dependency with no health check is not waited for, `service_started` never waits, and stopping or deleting never waits either.
+
+- The dependency is looked up **inside the same Compose project**, even if it is not part of your selection: pressing *Start all* on only the stopped containers of a stack still waits for a database that is running but not yet healthy. If that dependency is stopped, the dependent is refused rather than started without it.
+- The wait is up to **90 seconds** per dependency; change it with `HEALTH_WAIT_SECONDS` (1 to 600). A failure caused by an unhealthy or stopped dependency is reported immediately, not after the timeout.
+
 **Select any containers** with the checkboxes on each row (or the one next to the search box for everything visible). A bar appears with **Start**, **Stop**, **Restart** and **Delete** for the selection, even across different groups.
 
 **Safety:** stopping, restarting and deleting several containers always asks first and lists their names; deleting also removes running containers but never their named volumes. Starting needs no confirmation. Acting on something already in the wanted state is not an error (a running container is simply skipped), and if one container fails the others still go ahead; failures are listed with Docker's reason. Group actions apply to the containers currently visible in that group, so a filter (e.g. *Stopped*) narrows what *Start all* does.
@@ -392,6 +397,7 @@ Optional environment variables:
 | `PORT` | `4455` | Port (the allowed-hosts list follows it) |
 | `DATA_DIR` | per OS | Where the history is stored |
 | `ALERT_HOST` | hostname | Label that prefixes alert messages |
+| `HEALTH_WAIT_SECONDS` | `90` | How long a group start waits for a `service_healthy` dependency (1–600) |
 | `SAMPLE_SECONDS` | `15` | Sampling interval |
 | `RETENTION_DAYS` | `7` | Days of history |
 
@@ -453,6 +459,7 @@ Controlling Docker is equivalent to having admin rights on the machine. Therefor
 | The Disk section is slow the first time | Docker computes sizes on demand; it can take several seconds with many images or volumes. Results are cached for 15 s |
 | Something could not be cleaned | It is in use: the list shows Docker's reason. Stop and remove the container that uses it first |
 | A variable is hidden but is not a secret | The detection is deliberately cautious (any name containing `key`, `token`, `pass`…): press *Show* to see it |
+| A group start says a service was not started | It depends on a service that never became healthy (see the failure window). Check that service's *Health* tab, fix it, and start the group again |
 | Does not start at boot | Missing linger: `sudo loginctl enable-linger $USER` |
 | Service restarts itself | May have hit the 256 MB memory limit: check `journalctl --user -u docker-gestor` |
 
@@ -529,7 +536,7 @@ Connection errors answer `503` with a `code` (`docker_unreachable`, `docker_deni
 ```bash
 systemctl --user stop docker-gestor     # frees port 4455
 npm run dev                             # hot reload
-npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups && npm run e2e:custom-groups && npm run e2e:dnd
+npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups && npm run e2e:custom-groups && npm run e2e:dnd && npm run e2e:health
 ```
 
 No Docker at hand? Run the fake API: `node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &` then `DOCKER_SOCKET=/tmp/docker-mock.sock npm run dev`.

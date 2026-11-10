@@ -30,7 +30,7 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 ## Features
 
 - **Containers** — list, search, filter, group by Compose stack; start / stop / restart / remove; clickable published ports; live CPU and memory per container.
-- **Manage by stack or selection** — start, stop or restart a whole group (or any selection) in one click, **in dependency order** when Compose declares it (database before API, reverse to stop). Works for any group, including stacks Compose cannot manage, and for **your own groups** (create them from a selection or by **drag and drop**, rename, merge, dissolve — containers are never touched).
+- **Manage by stack or selection** — start, stop or restart a whole group (or any selection) in one click, **in dependency order** when Compose declares it (database before API, reverse to stop) and **waiting for a service to be healthy** before starting what depends on it. Works for any group, including stacks Compose cannot manage, and for **your own groups** (create them from a selection or by **drag and drop**, rename, merge, dissolve — containers are never touched).
 - **Live logs** — streaming, filtering, timestamps toggle, error/warning highlighting, download.
 - **Terminal** — interactive shell inside a running container (xterm.js over WebSocket).
 - **Create containers** — image, ports, env vars, volumes, restart policy and network, with live validation. Pulls the image if missing.
@@ -124,6 +124,7 @@ Optional environment variables:
 | `PORT` | `4455` | Port (always bound to `127.0.0.1`) |
 | `DATA_DIR` | per OS (Linux: `~/.local/share/docker-gestor`) | Where the history database is stored |
 | `ALERT_HOST` | hostname | Label that prefixes alert messages |
+| `HEALTH_WAIT_SECONDS` | `90` | How long a group start waits for a healthy dependency |
 | `SAMPLE_SECONDS` | `15` | Usage sampling interval |
 | `RETENTION_DAYS` | `7` | Days of history to keep |
 
@@ -158,6 +159,7 @@ npm run e2e:detail   # container details end-to-end (secrets must never leak)
 npm run e2e:groups   # stack actions end-to-end (dependency ordering, partial failures)
 npm run e2e:custom-groups   # custom groups end-to-end (persistence, rename/merge, limits)
 npm run e2e:dnd      # drag and drop with a real mouse drag (needs Chrome/Chromium)
+npm run e2e:health   # group start waits for healthy dependencies (real timings)
 ```
 
 Stack: Next.js (App Router) · React · Tailwind CSS 4 · dockerode · `node:sqlite` · ws · xterm.js. UI strings live in `src/app/locales/` (adding a language is one file).

@@ -160,6 +160,11 @@ Los contenedores se agrupan por stack de Compose (se desactiva con *Agrupar por 
 
 **El orden importa.** Cuando Compose declara dependencias (`depends_on`), Docker Gestor las respeta: **inicia** primero la base de datos y la caché, luego la API y luego el servidor web, y **detiene** en el orden inverso. Los contenedores de una misma capa se ejecutan en paralelo, así que un stack grande sigue siendo rápido. Sin información de dependencias (o fuera de Compose) todo se ejecuta a la vez. Reiniciar sigue el orden de inicio.
 
+**Esperar a que un servicio esté listo.** Si Compose declara una dependencia como `service_healthy` (o `service_completed_successfully`, típico de contenedores de preparación que se ejecutan una vez), iniciar o reiniciar un grupo **espera** a que esté lista antes de arrancar lo que depende de ella, igual que hace `docker compose up`. Si la dependencia nunca llega a estar lista, lo que depende de ella **no se arranca** (ni lo que depende de eso), y la ventana de errores explica por qué: se agotó el tiempo, pasó a no saludable o se detuvo. Una dependencia sin comprobación de salud no se espera, `service_started` nunca espera, y parar o eliminar tampoco esperan.
+
+- La dependencia se busca **dentro del mismo proyecto de Compose**, aunque no esté en tu selección: pulsar *Iniciar todos* solo sobre los contenedores detenidos de un stack sigue esperando a una base de datos que está en marcha pero aún no saludable. Si esa dependencia está detenida, el dependiente se rechaza en lugar de arrancar sin ella.
+- La espera es de hasta **90 segundos** por dependencia; se cambia con `HEALTH_WAIT_SECONDS` (de 1 a 600). Un fallo por dependencia no saludable o detenida se comunica enseguida, no al final del tiempo.
+
 **Selecciona los contenedores que quieras** con la casilla de cada fila (o la que está junto al buscador, para todo lo visible). Aparece una barra con **Iniciar**, **Detener**, **Reiniciar** y **Eliminar** para la selección, aunque sea de grupos distintos.
 
 **Seguridad:** detener, reiniciar y eliminar varios contenedores siempre pregunta antes y lista sus nombres; eliminar también quita los que están en marcha pero nunca sus volúmenes con nombre. Iniciar no pide confirmación. Actuar sobre algo que ya está en el estado deseado no es un error (un contenedor en marcha simplemente se omite), y si uno falla los demás siguen adelante; los fallos se listan con el motivo de Docker. Las acciones de grupo se aplican a los contenedores visibles en ese grupo, así que un filtro (p. ej. *Detenidos*) acota lo que hace *Iniciar todos*.
@@ -401,6 +406,7 @@ Variables de entorno (todas opcionales):
 | `PORT` | `4455` | Puerto (siempre en `127.0.0.1`) |
 | `DATA_DIR` | según el sistema (Linux: `~/.local/share/docker-gestor`) | Dónde se guarda el historial |
 | `ALERT_HOST` | nombre del equipo | Etiqueta que encabeza los mensajes de alerta |
+| `HEALTH_WAIT_SECONDS` | `90` | Cuánto espera un inicio de grupo a una dependencia `service_healthy` (1–600) |
 | `SAMPLE_SECONDS` | `15` | Intervalo de muestreo |
 | `RETENTION_DAYS` | `7` | Días de historial |
 
@@ -484,6 +490,7 @@ Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso
 | La sección Disco tarda la primera vez | Docker calcula los tamaños bajo demanda; con muchas imágenes o volúmenes pueden ser varios segundos. El resultado se guarda 15 s |
 | Algo no se pudo limpiar | Está en uso: la lista muestra el motivo de Docker. Detén y elimina antes el contenedor que lo usa |
 | Una variable aparece oculta pero no es un secreto | La detección es deliberadamente prudente (cualquier nombre con `key`, `token`, `pass`…): pulsa *Mostrar* para verla |
+| Un inicio de grupo dice que un servicio no se arrancó | Depende de un servicio que nunca llegó a estar saludable (mira la ventana de errores). Revisa la pestaña *Salud* de ese servicio, arréglalo y vuelve a iniciar el grupo |
 | No arranca al encender el equipo | Falta el *linger*: `sudo loginctl enable-linger $USER` |
 | El servicio se reinicia solo | Puede haber llegado al límite de memoria (256 MB): mira `journalctl --user -u docker-gestor` |
 
