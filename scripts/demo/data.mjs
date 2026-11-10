@@ -24,10 +24,26 @@ export const IMAGES = [
   ["nginx:1.27-alpine", 52e6, 12], ["ghcr.io/acme/shop-api:2.4.1", 318e6, 3], ["postgres:16-alpine", 274e6, 40], ["redis:7-alpine", 41e6, 25],
   ["grafana/grafana:11.3.0", 468e6, 15], ["prom/prometheus:v2.55.0", 292e6, 21], ["prom/node-exporter:v1.8.2", 43e6, 60], ["axllent/mailpit:v1.21", 25e6, 8],
   ["alpine:3.20", 8e6, 90], ["node:22-alpine", 164e6, 5], ["ubuntu:24.04", 78e6, 33],
-].map(([tag, size, days]) => ({ Id: `sha256:${id(tag)}`, RepoTags: [tag], Size: size, Created: now - days * 86400 }));
+].map(([tag, size, days]) => ({ Id: `sha256:${id(tag)}`, RepoTags: [tag], Size: size, Created: now - days * 86400 }))
+  // untagged leftovers from old builds
+  .concat([["old-build-1", 182e6, 12], ["old-build-2", 96e6, 20]].map(([n, size, days]) => ({ Id: `sha256:${id(n)}`, RepoTags: null, Size: size, Created: now - days * 86400 })));
 
-export const VOLUMES = ["shop_pgdata", "shop_redis", "grafana_data", "prometheus_data", "mailpit_data", id("anon-1")]
+/** Layers shared between images (bytes), by tag: shop-api is built FROM node:22-alpine. */
+export const SHARED = { "ghcr.io/acme/shop-api:2.4.1": 100e6, "node:22-alpine": 100e6 };
+/** Writable-layer size of each container (bytes). */
+export const SIZE_RW = { "shop-web": 2e6, "shop-api": 38e6, "shop-db": 120e6, "shop-cache": 1e6, "shop-worker": 24e6, grafana: 31e6, prometheus: 66e6, "node-exporter": 0.4e6, mailpit: 9e6, "old-experiment": 38e6 };
+
+/** name -> { size in bytes, containers that mount it } (RefCount is derived from the containers that still exist). */
+export const VOLUME_META = {
+  shop_pgdata: { size: 640e6, users: ["shop-db"] }, shop_redis: { size: 12e6, users: ["shop-cache"] }, grafana_data: { size: 88e6, users: ["grafana"] },
+  prometheus_data: { size: 1.1e9, users: ["prometheus"] }, mailpit_data: { size: 4e6, users: ["mailpit"] },
+  old_experiment_data: { size: 220e6, users: ["old-experiment"] }, legacy_uploads: { size: 410e6, users: [] }, [id("anon-1")]: { size: 310e6, users: [] },
+};
+export const VOLUMES = Object.keys(VOLUME_META)
   .map((n) => ({ Name: n, Driver: "local", Mountpoint: `/var/lib/docker/volumes/${n}/_data`, CreatedAt: "2026-10-02T09:12:44Z" }));
+
+export const BUILD_CACHE = [[310e6, false], [180e6, false], [96e6, false], [64e6, false], [42e6, false], [35e6, true], [18e6, false]]
+  .map(([Size, InUse], i) => ({ ID: id(`cache-${i}`), Type: "regular", Description: `RUN step ${i + 1}`, Size, InUse, Shared: false }));
 
 export const NETWORKS = [
   { Id: id("net-bridge"), Name: "bridge", Driver: "bridge", Scope: "local", IPAM: { Config: [{ Subnet: "172.17.0.0/16" }] }, members: ["mailpit"] },

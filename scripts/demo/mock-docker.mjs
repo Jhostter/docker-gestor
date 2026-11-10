@@ -3,13 +3,16 @@
 //   node scripts/demo/mock-docker.mjs /path/to/mock.sock       (then: DOCKER_SOCKET=/path/to/mock.sock npm start)
 import http from "node:http";
 import { rmSync } from "node:fs";
-import { CONTAINERS, IMAGES, VOLUMES, NETWORKS, rnd } from "./data.mjs";
+import { CONTAINERS, IMAGES, VOLUMES, VOLUME_META, BUILD_CACHE, SHARED, SIZE_RW, NETWORKS, rnd } from "./data.mjs";
 
 const sock = process.argv[2];
 if (!sock) { console.error("usage: mock-docker.mjs <socket-path>"); process.exit(1); }
 try { rmSync(sock); } catch { /* not there */ }
 
 const state = CONTAINERS.map((c) => ({ ...c }));
+const images = IMAGES.map((i) => ({ ...i, RepoTags: i.RepoTags ? [...i.RepoTags] : null }));
+const volumes = VOLUMES.map((v) => ({ ...v }));
+let cache = BUILD_CACHE.map((c) => ({ ...c }));
 const listeners = new Set();
 const emit = (type, action, name, image = "", extra = {}) => {
   const t = Date.now(), line = JSON.stringify({ Type: type, Action: action, Actor: { ID: ctrId(name), Attributes: { name, image, ...extra } }, time: Math.floor(t / 1000), timeNano: t * 1e6 }) + "\n";
@@ -49,7 +52,7 @@ http.createServer((req, res) => {
   if (m === "GET" && p === "/containers/json") return json(res, state.filter((c) => u.searchParams.get("all") === "true" || c.state === "running").map(summary));
   if ((r = p.match(/^\/containers\/([^/]+)\/(json|stats|logs|start|stop|restart)$/))) {
     const c = find(r[1]); if (!c) return json(res, { message: "No such container" }, 404);
-    if (r[2] === "json" && m === "GET") return json(res, { Id: c.id, Name: `/${c.name}`, Config: { Tty: false, Image: c.image }, State: { Running: c.state === "running" } });
+    if (r[2] === "json" && m === "GET") return json(res, { Id: c.id, Name: `/${c.name}`, Config: { Tty: false, Image: c.image }, State: { Running: c.state === "running", Restarting: false, Paused: c.state === "paused" } });
     if (r[2] === "stats") return json(res, stats(c));
     if (r[2] === "logs") {
       res.writeHead(200, { "content-type": "application/vnd.docker.raw-stream" });
@@ -70,9 +73,43 @@ http.createServer((req, res) => {
       res.writeHead(204); return res.end();
     }
   }
-  if (m === "DELETE" && (r = p.match(/^\/containers\/([^/]+)$/))) { const i = state.findIndex((c) => c.id.startsWith(r[1])); if (i >= 0) { emit("container", "destroy", state[i].name, state[i].image); state.splice(i, 1); } res.writeHead(204); return res.end(); }
-  if (m === "GET" && p === "/images/json") return json(res, IMAGES);
-  if (m === "GET" && p === "/volumes") return json(res, { Volumes: VOLUMES, Warnings: null });
+  if (m === "DELETE" && (r = p.match(/^\/containers\/([^/]+)$/))) { const i = state.findIndex((c) => c.id.startsWith(r[1])); if (i >= 0 && state[i].state === "running" && u.searchParams.get("force") !== "true") return json(res, { message: "cannot remove a running container" }, 409); if (i >= 0) { emit("container", "destroy", state[i].name, state[i].image); state.splice(i, 1); } res.writeHead(204); return res.end(); }
+  if (m === "GET" && p === "/images/json") return json(res, images);
+  if (m === "GET" && p === "/volumes") return json(res, { Volumes: volumes, Warnings: null });
+  if (m === "GET" && p === "/system/df") {
+    const used = (i) => state.filter((c) => (i.RepoTags ?? []).includes(c.image)).length;
+    const total = images.reduce((a, i) => a + i.Size, 0), shared = images.reduce((a, i) => a + (SHARED[i.RepoTags?.[0]] ?? 0), 0);
+    return json(res, {
+      LayersSize: total - shared / 2,
+      Images: images.map((i) => ({ Id: i.Id, RepoTags: i.RepoTags, Size: i.Size, SharedSize: SHARED[i.RepoTags?.[0]] ?? 0, Containers: used(i), Created: i.Created })),
+      Containers: state.map((c) => ({ Id: c.id, Names: [`/${c.name}`], Image: c.image, State: c.state, SizeRw: SIZE_RW[c.name] ?? 0, Created: Math.floor(Date.now() / 1000) - (c.state === "running" ? 3 : 1) * 86400 })),
+      Volumes: volumes.map((v) => ({ ...v, UsageData: { Size: VOLUME_META[v.Name].size, RefCount: state.filter((c) => VOLUME_META[v.Name].users.includes(c.name)).length } })),
+      BuildCache: cache,
+    });
+  }
+  if ((r = p.match(/^\/images\/(.+)\/json$/)) && m === "GET") {
+    const ref = decodeURIComponent(r[1]), im = images.find((i) => i.Id === ref || i.Id === `sha256:${ref}` || i.Id.startsWith(`sha256:${ref}`) || (i.RepoTags ?? []).includes(ref));
+    return im ? json(res, { Id: im.Id, RepoTags: im.RepoTags ?? [] }) : json(res, { message: "No such image" }, 404);
+  }
+  if (m === "DELETE" && (r = p.match(/^\/images\/(.+)$/))) {
+    // Like Docker without force: refuse images used by containers and ids with several tags; a tag name just untags.
+    const ref = decodeURIComponent(r[1]), byTag = images.find((i) => (i.RepoTags ?? []).includes(ref)), im = byTag ?? images.find((i) => i.Id === ref || i.Id === `sha256:${ref}` || i.Id.startsWith(`sha256:${ref}`));
+    if (!im) return json(res, { message: "No such image" }, 404);
+    if (!byTag && (im.RepoTags ?? []).length > 1) return json(res, { message: "conflict: unable to delete, image is referenced in multiple repositories" }, 409);
+    const last = byTag ? im.RepoTags.length === 1 : true;
+    if (last && state.some((c) => (im.RepoTags ?? []).includes(c.image))) return json(res, { message: "conflict: unable to delete, image is being used by a container" }, 409);
+    if (byTag && !last) { im.RepoTags = im.RepoTags.filter((t) => t !== ref); return json(res, [{ Untagged: ref }]); }
+    images.splice(images.indexOf(im), 1); emit("image", "delete", im.Id.slice(7, 19)); return json(res, [{ Untagged: ref }, { Deleted: im.Id }]);
+  }
+  if (m === "DELETE" && (r = p.match(/^\/volumes\/([^/]+)$/))) {
+    const v = volumes.find((x) => x.Name === r[1]); if (!v) return json(res, { message: "No such volume" }, 404);
+    if (state.some((c) => VOLUME_META[v.Name].users.includes(c.name))) return json(res, { message: "volume is in use" }, 409);
+    volumes.splice(volumes.indexOf(v), 1); emit("volume", "destroy", v.Name); res.writeHead(204); return res.end();
+  }
+  if (m === "POST" && p === "/build/prune") {
+    const gone = cache.filter((c) => !c.InUse); cache = cache.filter((c) => c.InUse);
+    return json(res, { CachesDeleted: gone.map((c) => c.ID), SpaceReclaimed: gone.reduce((a, c) => a + c.Size, 0) });
+  }
   if (m === "GET" && p === "/networks") return json(res, NETWORKS.map(({ members, ...n }) => n));
   if ((r = p.match(/^\/networks\/([^/]+)$/)) && m === "GET") {
     const n = NETWORKS.find((x) => x.Id.startsWith(r[1])); if (!n) return json(res, { message: "not found" }, 404);

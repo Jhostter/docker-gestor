@@ -33,7 +33,8 @@
     "test": "node --test \"test/*.test.mjs\"",
     "smoke": "node scripts/smoke.mjs",
     "demo:shots": "node scripts/demo/screenshots.mjs",
-    "e2e:alerts": "node scripts/e2e-alerts.mjs"
+    "e2e:alerts": "node scripts/e2e-alerts.mjs",
+    "e2e:disk": "node scripts/e2e-disk.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

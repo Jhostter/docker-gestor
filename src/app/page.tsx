@@ -18,11 +18,12 @@ const HistoryChart = dynamic(() => import("./HistoryChart"), { ssr: false });
 const CreateForm = dynamic(() => import("./CreateForm"), { ssr: false });
 const Logs = dynamic(() => import("./Logs"), { ssr: false });
 const AlertsView = dynamic(() => import("./Alerts"), { ssr: false });
+const DiskView = dynamic(() => import("./Disk"), { ssr: false });
 type AlertsPublic = import("./Alerts").AlertsPublic;
 
 const TABS = [
   { id: "containers", icon: "box" }, { id: "compose", icon: "layers" }, { id: "images", icon: "image" },
-  { id: "volumes", icon: "disk" }, { id: "networks", icon: "net" }, { id: "events", icon: "pulse" }, { id: "alerts", icon: "bell" },
+  { id: "volumes", icon: "disk" }, { id: "networks", icon: "net" }, { id: "events", icon: "pulse" }, { id: "alerts", icon: "bell" }, { id: "disk", icon: "gauge" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 const tabKey = (id: Tab) => `tab_${id}` as Key;
@@ -188,6 +189,7 @@ function App() {
         {tab === "volumes" && <VolumesView {...{ volumes, busy, run, confirm, search, setSearch, searchRef }} />}
         {tab === "networks" && <NetworksView {...{ networks, busy, run, confirm }} />}
         {tab === "events" && <EventsView events={events} clear={() => setEvents([])} />}
+        {tab === "disk" && <DiskView />}
         {tab === "alerts" && <AlertsView cfg={alertsCfg} reload={reloadAlerts} refreshKey={alertsTick} />}
       </main>
 

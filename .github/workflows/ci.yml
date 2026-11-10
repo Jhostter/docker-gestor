@@ -25,3 +25,5 @@ jobs:
       - run: npm run smoke
       - run: npm run e2e:alerts
         if: runner.os == 'Linux'
+      - run: npm run e2e:disk
+        if: runner.os == 'Linux'
