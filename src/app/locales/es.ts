@@ -129,4 +129,10 @@ export const es = {
   err_dep_timeout: "Esperó {seconds} s a que «{dep}» estuviera listo y no lo estuvo", err_dep_unhealthy: "«{dep}» pasó a no saludable", err_dep_exited: "«{dep}» se detuvo antes de estar listo",
   err_dep_failed: "No se inició porque «{dep}» falló", err_dep_missing: "No se pudo comprobar «{dep}»",
   grp_dep_hint: "Lo que depende de un servicio que no llegó a estar listo no se arranca, igual que haría Compose.",
+  // Progreso de las acciones de grupo
+  prog_title_start: "Iniciando {n} contenedor|Iniciando {n} contenedores", prog_title_stop: "Deteniendo {n} contenedor|Deteniendo {n} contenedores",
+  prog_title_restart: "Reiniciando {n} contenedor|Reiniciando {n} contenedores", prog_title_remove: "Eliminando {n} contenedor|Eliminando {n} contenedores",
+  prog_layer: "Capa {n} de {total}", prog_pending: "En cola", prog_working: "En curso…", prog_waiting: "Esperando a que «{dep}» esté listo… {s} s / {max} s",
+  prog_ok: "Hecho", prog_skipped: "Ya estaba así", prog_failed: "Falló", prog_cancel: "Cancelar", prog_cancelling: "Cancelando…",
+  prog_cancel_hint: "Lo que ya está en curso termina; no se lanzan más capas.", prog_cancelled: "Cancelado: {ok} hecho, el resto no se ejecutó|Cancelado: {ok} hechos, el resto no se ejecutó",
 } as const;

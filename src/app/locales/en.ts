@@ -131,4 +131,10 @@ export const en: Record<keyof typeof es, string> = {
   err_dep_timeout: "Waited {seconds} s for “{dep}” to be ready, but it was not", err_dep_unhealthy: "“{dep}” became unhealthy", err_dep_exited: "“{dep}” stopped before it was ready",
   err_dep_failed: "Not started because “{dep}” failed", err_dep_missing: "Could not check “{dep}”",
   grp_dep_hint: "Whatever depends on a service that never became ready is not started, just as Compose would do.",
+  // Progress of group actions
+  prog_title_start: "Starting {n} container|Starting {n} containers", prog_title_stop: "Stopping {n} container|Stopping {n} containers",
+  prog_title_restart: "Restarting {n} container|Restarting {n} containers", prog_title_remove: "Deleting {n} container|Deleting {n} containers",
+  prog_layer: "Layer {n} of {total}", prog_pending: "Queued", prog_working: "Working…", prog_waiting: "Waiting for “{dep}” to be ready… {s} s / {max} s",
+  prog_ok: "Done", prog_skipped: "Already so", prog_failed: "Failed", prog_cancel: "Cancel", prog_cancelling: "Cancelling…",
+  prog_cancel_hint: "What is already running finishes; no further layers are started.", prog_cancelled: "Cancelled: {ok} done, the rest did not run|Cancelled: {ok} done, the rest did not run",
 };

@@ -39,7 +39,8 @@
     "e2e:groups": "node scripts/e2e-groups.mjs",
     "e2e:custom-groups": "node scripts/e2e-custom-groups.mjs",
     "e2e:dnd": "node scripts/e2e-dnd.mjs",
-    "e2e:health": "node scripts/e2e-health.mjs"
+    "e2e:health": "node scripts/e2e-health.mjs",
+    "e2e:progress": "node scripts/e2e-progress.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

@@ -18,6 +18,7 @@ const healthAt = new Map();   // name -> when its health check will first pass (
 const healthSeen = new Set(); // names whose "became healthy" has been logged since the last start
 const healthOverride = new Map(); // name -> forced status (demo only)
 const HEALTH_MS = Number(process.env.MOCK_HEALTH_MS ?? 1200);
+const inspects = {}; // how many times each container was inspected (to check that a cancelled wait stops polling)
 const ops = []; // ordered log of start/stop/restart/remove calls (read it at /_demo/ops)
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const emit = (type, action, name, image = "", extra = {}) => {
@@ -76,7 +77,7 @@ http.createServer(async (req, res) => {
   if (m === "GET" && p === "/containers/json") return json(res, state.filter((c) => u.searchParams.get("all") === "true" || c.state === "running").map(summary));
   if ((r = p.match(/^\/containers\/([^/]+)\/(json|stats|logs|start|stop|restart)$/))) {
     const c = find(r[1]); if (!c) return json(res, { message: "No such container" }, 404);
-    if (r[2] === "json" && m === "GET") return json(res, inspectOf(c));
+    if (r[2] === "json" && m === "GET") { inspects[c.name] = (inspects[c.name] ?? 0) + 1; return json(res, inspectOf(c)); }
     if (r[2] === "stats") return json(res, stats(c));
     if (r[2] === "logs") {
       res.writeHead(200, { "content-type": "application/vnd.docker.raw-stream" });
@@ -151,6 +152,7 @@ http.createServer(async (req, res) => {
     listeners.add(res); req.on("close", () => listeners.delete(res)); return;
   }
   if (m === "GET" && p === "/_demo/ops") return json(res, ops);
+  if (m === "GET" && p === "/_demo/inspects") return json(res, inspects);
   if (m === "POST" && (r = p.match(/^\/_demo\/health\/([^/]+)\/(starting|unhealthy|healthy|none)$/))) { if (r[2] === "none") healthOverride.delete(r[1]); else healthOverride.set(r[1], r[2]); return json(res, { ok: true }); }
   if (m === "POST" && (r = p.match(/^\/_demo\/(crash|oom|unhealthy|healthy)\/([^/]+)$/))) {
     // Fault injection for demos and the alerts end-to-end test; it does not exist in the real Docker API.

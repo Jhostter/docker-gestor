@@ -37,3 +37,5 @@ jobs:
         if: runner.os == 'Linux'
       - run: npm run e2e:health
         if: runner.os == 'Linux'
+      - run: npm run e2e:progress
+        if: runner.os == 'Linux'

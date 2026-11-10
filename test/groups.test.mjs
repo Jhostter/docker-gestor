@@ -238,3 +238,20 @@ test("dependencyRequirements can look outside the selection (so a still-starting
   assert.deepEqual(dependencyRequirements([api]).get("api"), [], "within the selection alone, db is unknown");
   assert.deepEqual(dependencyRequirements([api], [api, db]).get("api"), [{ id: "db", service: "db", condition: "service_healthy" }], "but it is found in the full list");
 });
+
+test("waitForDependency reports progress while it waits, and not when the dependency is already ready", async () => {
+  const k = clock(), ticks = []; let n = 0;
+  await waitForDependency("service_healthy", async () => ({ Running: true, Health: { Status: ++n < 4 ? "starting" : "healthy" } }), { ...k, intervalMs: 500, onWait: (ms) => ticks.push(ms) });
+  assert.deepEqual(ticks, [0, 500, 1000], "one tick per poll that had to wait, with the elapsed time");
+  const quiet = [];
+  await waitForDependency("service_healthy", async () => ({ Running: true, Health: { Status: "healthy" } }), { ...clock(), onWait: (ms) => quiet.push(ms) });
+  assert.deepEqual(quiet, [], "no progress noise when there is nothing to wait for");
+});
+
+test("waitForDependency can be cancelled and stops polling", async () => {
+  const k = clock(), ac = new AbortController(); let polls = 0;
+  const r = await waitForDependency("service_healthy", async () => { polls++; if (polls === 3) ac.abort(); return { Running: true, Health: { Status: "starting" } }; }, { ...k, intervalMs: 500, timeoutMs: 60000, signal: ac.signal });
+  assert.deepEqual(r, { ok: false, code: "cancelled" }); assert.equal(polls, 3, "no more polls after the cancel");
+  const pre = new AbortController(); pre.abort();
+  assert.deepEqual(await waitForDependency("service_healthy", async () => { throw new Error("must not be called"); }, { ...clock(), signal: pre.signal }), { ok: false, code: "cancelled" }, "already cancelled: it does not even look");
+});

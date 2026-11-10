@@ -27,5 +27,22 @@ export async function api<T = unknown>(url: string, init?: RequestInit): Promise
   }
   return d as T;
 }
+/** POST that answers with newline-delimited JSON events; `onEvent` runs for each one as it arrives. Abort with `signal`. */
+export async function postStream<E>(url: string, body: unknown, onEvent: (e: E) => void, signal?: AbortSignal) {
+  const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal });
+  if (!r.ok || !r.body) {
+    const d = (await r.json().catch(() => ({}))) as ApiError, key = `err_${d.code}`;
+    throw new Error(d.code && hasKey(key) ? tr(key, { where: d.where ?? "", ...(d.vars ?? {}) }) : (d.error ?? r.statusText));
+  }
+  const reader = r.body.getReader(), dec = new TextDecoder();
+  let buf = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split("\n"); buf = lines.pop() ?? "";
+    for (const l of lines) if (l.trim()) onEvent(JSON.parse(l) as E);
+  }
+}
 export const post = <T = unknown>(url: string, body?: unknown) =>
   api<T>(url, { method: "POST", headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });

@@ -1,7 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, post, bytes, ago } from "./format";
+import { api, post, postStream, bytes, ago } from "./format";
 import { useT, setLang, hasKey, type Key } from "./i18n";
 import { planMove } from "../lib/groups-core.mjs";
 import { Badge, Btn, Card, Chips, Empty, Icon, Meter, Modal, SearchBox, Spinner, UIProvider, useUI } from "./ui";
@@ -12,6 +12,13 @@ type Volume = { name: string; driver: string; mountpoint: string };
 type Stack = { name: string; dir: string; files: string[]; containers: number; running: number };
 type Network = { id: string; name: string; driver: string; scope: string; subnet: string | null; containers: string[]; builtin: boolean };
 type Ev = { t: number; type: string; action: string; name: string };
+type BatchResult = { id: string; name: string; ok: boolean; error?: string; code?: string; vars?: Record<string, string | number> };
+type StreamEv =
+  | { t: "plan"; layers: { id: string; name: string }[][] }
+  | { t: "item"; id: string; name: string; state: "waiting" | "working" | "ok" | "skipped" | "failed"; dep?: string; waited?: number; max?: number }
+  | { t: "done"; results: BatchResult[]; cancelled: boolean }
+  | { t: "error"; error: string };
+type Progress = { action: BatchAction; layers: { id: string; name: string }[][]; items: Record<string, { state: string; dep?: string; waited?: number; max?: number }>; cancelling: boolean; cancel: () => void };
 type Stat = { id: string; cpu: number; mem: number; limit: number };
 
 const Terminal = dynamic(() => import("./Terminal"), { ssr: false });
@@ -53,6 +60,7 @@ function App() {
   const [term, setTerm] = useState<Container | null>(null);
   const [chart, setChart] = useState<Container | null>(null);
   const [detail, setDetail] = useState<Container | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [customGroups, setCustomGroups] = useState<{ name: string; count: number }[]>([]);
   const [batchFailed, setBatchFailed] = useState<{ id: string; name: string; error?: string; code?: string; vars?: Record<string, string | number> }[] | null>(null);
@@ -175,12 +183,22 @@ function App() {
       if (!yes) return false;
     }
     setBusy((b) => new Set(b).add(key));
+    const ac = new AbortController(), out: { done?: { results: BatchResult[]; cancelled: boolean }; ok: number } = { ok: 0 };
+    setProgress({ action, layers: [], items: {}, cancelling: false, cancel: () => { setProgress((p) => (p ? { ...p, cancelling: true } : p)); ac.abort(); } });
     try {
-      const { results } = await post<{ results: { id: string; name: string; ok: boolean; error?: string; code?: string; vars?: Record<string, string | number> }[] }>("/api/containers/batch", { action, ids: cs.map((c) => c.id) });
-      const bad = results.filter((r) => !r.ok);
+      await postStream<StreamEv>("/api/containers/batch?stream=1", { action, ids: cs.map((c) => c.id) }, (e) => {
+        if (e.t === "plan") setProgress((p) => (p ? { ...p, layers: e.layers } : p));
+        else if (e.t === "item") { if (e.state === "ok" || e.state === "skipped") out.ok++; setProgress((p) => (p ? { ...p, items: { ...p.items, [e.id]: { state: e.state, dep: e.dep, waited: e.waited, max: e.max } } } : p)); }
+        else if (e.t === "done") out.done = e;
+        else if (e.t === "error") throw new Error(e.error);
+      }, ac.signal);
+      const results = out.done?.results ?? [], bad = results.filter((r) => !r.ok);
       toast(bad.length ? "error" : "ok", bad.length ? t("grp_done_part", { ok: results.length - bad.length, failed: bad.length }) : t("grp_done", { n: results.length }));
       if (bad.length) setBatchFailed(bad);
-    } catch (e) { toast("error", (e as Error).message); }
+    } catch (e) {
+      if (ac.signal.aborted) toast("info", t("prog_cancelled", { n: out.ok, ok: out.ok })); else toast("error", (e as Error).message);
+    }
+    setProgress(null);
     setBusy((b) => { const n = new Set(b); n.delete(key); return n; });
     refresh();
     return true;
@@ -231,6 +249,7 @@ function App() {
       {creating && <CreateForm networks={(networks ?? []).filter((n) => !["host", "none"].includes(n.name)).map((n) => n.name)} images={(images ?? []).flatMap((i) => i.tags)} onClose={() => setCreating(false)}
         onSubmit={async (b) => { await post("/api/containers", b); toast("ok", t("created_ok")); refresh(); }} />}
       {output && <Modal wide title={output.title} onClose={() => setOutput(null)}><pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 font-mono text-xs">{output.text.trim() || t("no_output")}</pre></Modal>}
+      {progress && <ProgressPanel p={progress} />}
       {batchFailed && <Modal wide title={t("grp_failed_title")} onClose={() => setBatchFailed(null)}>{batchFailed.some((f) => f.code?.startsWith("dep_")) && <p className="mb-3 text-sm text-muted">{t("grp_dep_hint")}</p>}<ul className="divide-y divide-line rounded-lg border border-line text-sm">{batchFailed.map((f) => <li key={f.id} className="px-3 py-2"><span className="font-medium">{f.name}</span><p className="text-xs text-bad">{f.code && hasKey(`err_${f.code}`) ? t(`err_${f.code}` as Key, f.vars) : f.error}</p></li>)}</ul></Modal>}
       {help && <HelpModal onClose={() => setHelp(false)} />}
     </div>
@@ -386,6 +405,42 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
       {moving && <MoveDialog names={picked.map((c) => c.name)} groups={customGroups} current={picked.map((c) => assignments[c.name]).filter(Boolean)} onClose={() => setMoving(false)}
         onDone={async () => { setMoving(false); setSelected(new Set()); setMode("custom"); await reloadGroups(); toast("ok", t("grp_saved")); }} />}
     </section>
+  );
+}
+
+const FINISHED = new Set(["ok", "skipped", "failed"]);
+/** Live progress of a group action. Only appears when it takes more than a moment, so quick actions do not flash it. */
+function ProgressPanel({ p }: { p: Progress }) {
+  const { t } = useT();
+  const [show, setShow] = useState(false);
+  useEffect(() => { const x = setTimeout(() => setShow(true), 600); return () => clearTimeout(x); }, []);
+  if (!show) return null;
+  const rows = p.layers.flat(), layer = p.layers.findIndex((l) => l.some((r) => !FINISHED.has(p.items[r.id]?.state ?? "")));
+  return (
+    <div role="status" aria-live="polite" className="animate-pop fixed bottom-4 left-1/2 z-40 w-[30rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border border-line bg-surface p-3 shadow-2xl">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-medium">{t(`prog_title_${p.action}` as Key, { n: rows.length })}</p>
+        {p.layers.length > 1 && layer >= 0 && <span className="text-xs text-muted">{t("prog_layer", { n: layer + 1, total: p.layers.length })}</span>}
+      </div>
+      <ul className="max-h-56 space-y-1 overflow-auto text-sm">
+        {rows.map((r) => {
+          const it = p.items[r.id], st = it?.state ?? "pending";
+          return (
+            <li key={r.id} className="flex items-start gap-2">
+              <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+                {st === "waiting" || st === "working" ? <Spinner className="size-3.5" /> : st === "ok" ? <span className="text-ok">✓</span> : st === "skipped" ? <span className="text-muted">–</span> : st === "failed" ? <span className="text-bad">✕</span> : <span className="size-1.5 rounded-full bg-line" />}
+              </span>
+              <span className="min-w-0 flex-1"><span className="font-medium">{r.name}</span>{" "}
+                <span className={st === "failed" ? "text-bad" : "text-muted"}>{st === "waiting" ? t("prog_waiting", { dep: it!.dep ?? "", s: it!.waited ?? 0, max: it!.max ?? 0 }) : t(`prog_${st}` as Key)}</span></span>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <p className="text-xs text-muted">{t("prog_cancel_hint")}</p>
+        <Btn onClick={p.cancel} disabled={p.cancelling}>{p.cancelling ? t("prog_cancelling") : t("prog_cancel")}</Btn>
+      </div>
+    </div>
   );
 }
 

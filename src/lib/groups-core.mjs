@@ -155,16 +155,19 @@ export function evaluateDependency(condition, state) {
 
 /**
  * Polls `check()` (returns the dependency's State) until it is ready, fails or the time runs out.
- * @returns { ok: true } | { ok: false, code: "dep_timeout" | "dep_unhealthy" | "dep_exited" | "dep_missing" }
+ * `onWait(elapsedMs)` is called every time it has to keep waiting (to show progress); `signal` cancels the wait.
+ * @returns { ok: true } | { ok: false, code: "dep_timeout" | "dep_unhealthy" | "dep_exited" | "dep_missing" | "cancelled" }
  */
-export async function waitForDependency(condition, check, { timeoutMs = 90000, intervalMs = 500, now = Date.now, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+export async function waitForDependency(condition, check, { timeoutMs = 90000, intervalMs = 500, now = Date.now, sleep = (ms) => new Promise((r) => setTimeout(r, ms)), onWait, signal } = {}) {
   const start = now();
   for (;;) {
+    if (signal?.aborted) return { ok: false, code: "cancelled" };
     let r;
     try { r = evaluateDependency(condition, await check()); } catch { return { ok: false, code: "dep_missing" }; }
     if (r.state === "ready") return { ok: true };
     if (r.state === "fail") return { ok: false, code: r.code };
     if (now() - start >= timeoutMs) return { ok: false, code: "dep_timeout" };
+    onWait?.(now() - start);
     await sleep(intervalMs);
   }
 }
