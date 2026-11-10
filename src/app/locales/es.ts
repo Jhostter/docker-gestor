@@ -125,4 +125,8 @@ export const es = {
   dnd_handle: "Arrastra para mover a otro grupo", dnd_new_zone: "Suelta aquí para crear un grupo nuevo", dnd_remove_zone: "Suelta aquí para sacarlos de su grupo", dnd_new_title: "Nuevo grupo",
   dnd_moved: "{n} contenedor movido a «{group}»|{n} contenedores movidos a «{group}»", dnd_removed: "{n} contenedor sacado de su grupo|{n} contenedores sacados de su grupo",
   dnd_hint: "Arrastra el asa ⠿ de una fila a otro grupo (o usa «Mover a grupo…»).",
+  // Esperar a la salud de las dependencias
+  err_dep_timeout: "Esperó {seconds} s a que «{dep}» estuviera listo y no lo estuvo", err_dep_unhealthy: "«{dep}» pasó a no saludable", err_dep_exited: "«{dep}» se detuvo antes de estar listo",
+  err_dep_failed: "No se inició porque «{dep}» falló", err_dep_missing: "No se pudo comprobar «{dep}»",
+  grp_dep_hint: "Lo que depende de un servicio que no llegó a estar listo no se arranca, igual que haría Compose.",
 } as const;

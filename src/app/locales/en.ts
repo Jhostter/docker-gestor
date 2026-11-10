@@ -127,4 +127,8 @@ export const en: Record<keyof typeof es, string> = {
   dnd_handle: "Drag to move to another group", dnd_new_zone: "Drop here to create a new group", dnd_remove_zone: "Drop here to take them out of their group", dnd_new_title: "New group",
   dnd_moved: "{n} container moved to “{group}”|{n} containers moved to “{group}”", dnd_removed: "{n} container taken out of its group|{n} containers taken out of their groups",
   dnd_hint: "Drag a row's ⠿ handle to another group (or use “Move to group…”).",
+  // Waiting for dependencies to be healthy
+  err_dep_timeout: "Waited {seconds} s for “{dep}” to be ready, but it was not", err_dep_unhealthy: "“{dep}” became unhealthy", err_dep_exited: "“{dep}” stopped before it was ready",
+  err_dep_failed: "Not started because “{dep}” failed", err_dep_missing: "Could not check “{dep}”",
+  grp_dep_hint: "Whatever depends on a service that never became ready is not started, just as Compose would do.",
 };

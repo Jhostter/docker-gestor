@@ -12,3 +12,9 @@ export type GroupOp = { kind: "assign"; names: string[]; group: string | null } 
 export function validateGroupOp(body: unknown): GroupOp;
 export function canonicalGroup(name: string, existing: Iterable<string>): string;
 export function planMove(assignments: Record<string, string>, names: string[], group: string | null): { next: Record<string, string>; moved: string[]; group: string | null };
+export type Dependency = { service: string; condition: string };
+export function parseDependencies(label?: string): Dependency[];
+export function dependencyRequirements(containers: { id: string; labels?: Record<string, string> }[], universe?: { id: string; labels?: Record<string, string> }[]): Map<string, { id: string; service: string; condition: string }[]>;
+export type ContainerState = { Status?: string; Running?: boolean; Restarting?: boolean; ExitCode?: number; Health?: { Status?: string } };
+export function evaluateDependency(condition: string, state?: ContainerState): { state: "ready" } | { state: "wait" } | { state: "fail"; code: "dep_unhealthy" | "dep_exited" };
+export function waitForDependency(condition: string, check: () => Promise<ContainerState>, opts?: { timeoutMs?: number; intervalMs?: number; now?: () => number; sleep?: (ms: number) => Promise<void> }): Promise<{ ok: true } | { ok: false; code: "dep_timeout" | "dep_unhealthy" | "dep_exited" | "dep_missing" }>;

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { planLayers, parseDependsOn, validateBatch, BatchError, MAX_IDS, validateGroupName, validateGroupOp, canonicalGroup, MAX_GROUP_NAME, planMove } from "../src/lib/groups-core.mjs";
+import { planLayers, parseDependsOn, validateBatch, BatchError, MAX_IDS, validateGroupName, validateGroupOp, canonicalGroup, MAX_GROUP_NAME, planMove, parseDependencies, dependencyRequirements, evaluateDependency, waitForDependency } from "../src/lib/groups-core.mjs";
 
 const c = (id, service, dependsOn) => ({ id, labels: service ? { "com.docker.compose.service": service, ...(dependsOn ? { "com.docker.compose.depends_on": dependsOn } : {}) } : {} });
 // web -> api -> (db, cache);  worker -> (db, cache)
@@ -147,4 +147,94 @@ test("planMove de-duplicates names and handles many", () => {
   assert.deepEqual(r.moved, ["a", "b"]);
   const many = Array.from({ length: 200 }, (_, i) => "c" + i);
   assert.equal(planMove({}, many, "G").moved.length, 200);
+});
+
+test("parseDependencies reads the condition, defaulting to service_started", () => {
+  assert.deepEqual(parseDependencies("db:service_healthy:false,job:service_completed_successfully:true,cache"), [
+    { service: "db", condition: "service_healthy" }, { service: "job", condition: "service_completed_successfully" }, { service: "cache", condition: "service_started" }]);
+  assert.deepEqual(parseDependencies(""), []); assert.deepEqual(parseDependencies(undefined), []);
+});
+
+test("dependencyRequirements: only dependencies inside the selection, with their condition", () => {
+  const c = (id, service, dep) => ({ id, labels: { "com.docker.compose.service": service, ...(dep ? { "com.docker.compose.depends_on": dep } : {}) } });
+  const sel = [c("api", "api", "db:service_healthy:false,cache:service_started:false,ghost:service_healthy:false"), c("db", "db"), c("cache", "cache")];
+  const r = dependencyRequirements(sel);
+  assert.deepEqual(r.get("api"), [{ id: "db", service: "db", condition: "service_healthy" }, { id: "cache", service: "cache", condition: "service_started" }], "ghost does not exist: ignored");
+  assert.deepEqual(r.get("db"), []);
+  const selfDep = dependencyRequirements([c("x", "x", "x:service_healthy:false")]);
+  assert.deepEqual(selfDep.get("x"), [], "self-references are ignored");
+  assert.deepEqual([...dependencyRequirements([{ id: "plain" }]).get("plain")], [], "containers with no labels have no requirements");
+});
+
+test("evaluateDependency: service_healthy", () => {
+  const run = (Health) => ({ Running: true, ...(Health ? { Health } : {}) });
+  assert.deepEqual(evaluateDependency("service_healthy", run({ Status: "healthy" })), { state: "ready" });
+  assert.deepEqual(evaluateDependency("service_healthy", run({ Status: "starting" })), { state: "wait" });
+  assert.deepEqual(evaluateDependency("service_healthy", run({ Status: "unhealthy" })), { state: "fail", code: "dep_unhealthy" });
+  assert.deepEqual(evaluateDependency("service_healthy", run()), { state: "ready" }, "no health check: nothing to wait for");
+  assert.deepEqual(evaluateDependency("service_healthy", { Running: false, Status: "exited", ExitCode: 1 }), { state: "fail", code: "dep_exited" });
+  assert.deepEqual(evaluateDependency("service_healthy", { Running: false, Restarting: true, Health: { Status: "starting" } }), { state: "wait" }, "a restarting container is waited for");
+});
+
+test("evaluateDependency: service_completed_successfully", () => {
+  assert.deepEqual(evaluateDependency("service_completed_successfully", { Running: true }), { state: "wait" });
+  assert.deepEqual(evaluateDependency("service_completed_successfully", { Running: false, Status: "exited", ExitCode: 0 }), { state: "ready" });
+  assert.deepEqual(evaluateDependency("service_completed_successfully", { Running: false, Status: "exited", ExitCode: 3 }), { state: "fail", code: "dep_exited" });
+  assert.deepEqual(evaluateDependency("service_completed_successfully", { Running: false, Status: "created" }), { state: "wait" });
+});
+
+test("evaluateDependency: service_started and unknown conditions never wait", () => {
+  assert.deepEqual(evaluateDependency("service_started", { Running: false }), { state: "ready" });
+  assert.deepEqual(evaluateDependency("something_new", undefined), { state: "ready" });
+});
+
+/** A fake clock so the waiting logic is tested without real time. */
+function clock() { const c = { t: 0 }; return { now: () => c.t, sleep: async (ms) => { c.t += ms; }, c }; }
+
+test("waitForDependency: waits until healthy, polling at the interval", async () => {
+  const k = clock(); let calls = 0;
+  const r = await waitForDependency("service_healthy", async () => ({ Running: true, Health: { Status: ++calls < 4 ? "starting" : "healthy" } }), { ...k, intervalMs: 500, timeoutMs: 10000 });
+  assert.deepEqual(r, { ok: true }); assert.equal(calls, 4); assert.equal(k.c.t, 1500);
+});
+
+test("waitForDependency: gives up at the timeout", async () => {
+  const k = clock();
+  const r = await waitForDependency("service_healthy", async () => ({ Running: true, Health: { Status: "starting" } }), { ...k, intervalMs: 500, timeoutMs: 3000 });
+  assert.deepEqual(r, { ok: false, code: "dep_timeout" }); assert.ok(k.c.t >= 3000 && k.c.t <= 3500);
+});
+
+test("waitForDependency: fails fast when the dependency becomes unhealthy or dies", async () => {
+  const k = clock();
+  assert.deepEqual(await waitForDependency("service_healthy", async () => ({ Running: true, Health: { Status: "unhealthy" } }), { ...k, timeoutMs: 60000 }), { ok: false, code: "dep_unhealthy" });
+  assert.equal(k.c.t, 0, "no waiting before failing");
+  assert.deepEqual(await waitForDependency("service_healthy", async () => ({ Running: false, Status: "exited", ExitCode: 137 }), { ...k }), { ok: false, code: "dep_exited" });
+});
+
+test("waitForDependency: an inspect error is reported, not thrown", async () => {
+  const r = await waitForDependency("service_healthy", async () => { throw new Error("no such container"); }, clock());
+  assert.deepEqual(r, { ok: false, code: "dep_missing" });
+});
+
+test("waitForDependency: an init container that completes successfully is waited for", async () => {
+  const k = clock(); let n = 0;
+  const r = await waitForDependency("service_completed_successfully", async () => (++n < 3 ? { Running: true } : { Running: false, Status: "exited", ExitCode: 0 }), { ...k, intervalMs: 100 });
+  assert.deepEqual(r, { ok: true }); assert.equal(n, 3);
+});
+
+test("dependencies are resolved inside the same Compose project (two stacks can both have a db)", () => {
+  const c = (id, project, service, dep) => ({ id, labels: { "com.docker.compose.project": project, "com.docker.compose.service": service, ...(dep ? { "com.docker.compose.depends_on": dep } : {}) } });
+  const both = [c("a-api", "A", "api", "db:service_healthy:false"), c("a-db", "A", "db"), c("b-api", "B", "api", "db:service_healthy:false"), c("b-db", "B", "db")];
+  const r = dependencyRequirements(both);
+  assert.deepEqual(r.get("a-api").map((x) => x.id), ["a-db"], "stack A's api waits only for stack A's db");
+  assert.deepEqual(r.get("b-api").map((x) => x.id), ["b-db"]);
+  // ordering too: B's db must not hold up A's api
+  const onlyAApiAndBDb = [c("a-api", "A", "api", "db:service_healthy:false"), c("b-db", "B", "db")];
+  assert.deepEqual(planLayers(onlyAApiAndBDb, "start").map((l) => [...l].sort()), [["a-api", "b-db"]], "no ordering across projects");
+});
+
+test("dependencyRequirements can look outside the selection (so a still-starting database is waited for)", () => {
+  const c = (id, service, dep) => ({ id, labels: { "com.docker.compose.project": "shop", "com.docker.compose.service": service, ...(dep ? { "com.docker.compose.depends_on": dep } : {}) } });
+  const api = c("api", "api", "db:service_healthy:false"), db = c("db", "db");
+  assert.deepEqual(dependencyRequirements([api]).get("api"), [], "within the selection alone, db is unknown");
+  assert.deepEqual(dependencyRequirements([api], [api, db]).get("api"), [{ id: "db", service: "db", condition: "service_healthy" }], "but it is found in the full list");
 });

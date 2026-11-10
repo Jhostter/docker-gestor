@@ -2,7 +2,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, post, bytes, ago } from "./format";
-import { useT, setLang, type Key } from "./i18n";
+import { useT, setLang, hasKey, type Key } from "./i18n";
 import { planMove } from "../lib/groups-core.mjs";
 import { Badge, Btn, Card, Chips, Empty, Icon, Meter, Modal, SearchBox, Spinner, UIProvider, useUI } from "./ui";
 
@@ -55,7 +55,7 @@ function App() {
   const [detail, setDetail] = useState<Container | null>(null);
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [customGroups, setCustomGroups] = useState<{ name: string; count: number }[]>([]);
-  const [batchFailed, setBatchFailed] = useState<{ id: string; name: string; error?: string }[] | null>(null);
+  const [batchFailed, setBatchFailed] = useState<{ id: string; name: string; error?: string; code?: string; vars?: Record<string, string | number> }[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [help, setHelp] = useState(false);
   const [output, setOutput] = useState<{ title: string; text: string } | null>(null);
@@ -176,7 +176,7 @@ function App() {
     }
     setBusy((b) => new Set(b).add(key));
     try {
-      const { results } = await post<{ results: { id: string; name: string; ok: boolean; error?: string }[] }>("/api/containers/batch", { action, ids: cs.map((c) => c.id) });
+      const { results } = await post<{ results: { id: string; name: string; ok: boolean; error?: string; code?: string; vars?: Record<string, string | number> }[] }>("/api/containers/batch", { action, ids: cs.map((c) => c.id) });
       const bad = results.filter((r) => !r.ok);
       toast(bad.length ? "error" : "ok", bad.length ? t("grp_done_part", { ok: results.length - bad.length, failed: bad.length }) : t("grp_done", { n: results.length }));
       if (bad.length) setBatchFailed(bad);
@@ -231,7 +231,7 @@ function App() {
       {creating && <CreateForm networks={(networks ?? []).filter((n) => !["host", "none"].includes(n.name)).map((n) => n.name)} images={(images ?? []).flatMap((i) => i.tags)} onClose={() => setCreating(false)}
         onSubmit={async (b) => { await post("/api/containers", b); toast("ok", t("created_ok")); refresh(); }} />}
       {output && <Modal wide title={output.title} onClose={() => setOutput(null)}><pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 font-mono text-xs">{output.text.trim() || t("no_output")}</pre></Modal>}
-      {batchFailed && <Modal wide title={t("grp_failed_title")} onClose={() => setBatchFailed(null)}><ul className="divide-y divide-line rounded-lg border border-line text-sm">{batchFailed.map((f) => <li key={f.id} className="px-3 py-2"><span className="font-medium">{f.name}</span><p className="text-xs text-bad">{f.error}</p></li>)}</ul></Modal>}
+      {batchFailed && <Modal wide title={t("grp_failed_title")} onClose={() => setBatchFailed(null)}>{batchFailed.some((f) => f.code?.startsWith("dep_")) && <p className="mb-3 text-sm text-muted">{t("grp_dep_hint")}</p>}<ul className="divide-y divide-line rounded-lg border border-line text-sm">{batchFailed.map((f) => <li key={f.id} className="px-3 py-2"><span className="font-medium">{f.name}</span><p className="text-xs text-bad">{f.code && hasKey(`err_${f.code}`) ? t(`err_${f.code}` as Key, f.vars) : f.error}</p></li>)}</ul></Modal>}
       {help && <HelpModal onClose={() => setHelp(false)} />}
     </div>
   );

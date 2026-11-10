@@ -29,13 +29,11 @@ export function parseDependsOn(label) {
  * @param containers [{ id, labels }]
  */
 export function planLayers(containers, action) {
-  const byService = new Map();
-  const svc = (c) => c.labels?.["com.docker.compose.service"];
-  for (const c of containers) { const s = svc(c); if (s) byService.set(s, [...(byService.get(s) ?? []), c]); }
+  const byService = serviceIndex(containers);
   const deps = new Map(); // container id -> ids of the selected containers it must wait for
   for (const c of containers) {
     const wait = new Set();
-    for (const d of parseDependsOn(c.labels?.["com.docker.compose.depends_on"])) for (const dep of byService.get(d) ?? []) if (dep.id !== c.id) wait.add(dep.id);
+    for (const d of parseDependsOn(c.labels?.["com.docker.compose.depends_on"])) for (const dep of byService.get(serviceKey(c, d)) ?? []) if (dep.id !== c.id) wait.add(dep.id);
     deps.set(c.id, wait);
   }
   const layers = []; const placed = new Set(); let rest = containers.map((c) => c.id);
@@ -45,6 +43,15 @@ export function planLayers(containers, action) {
     layers.push(layer); layer.forEach((id) => placed.add(id)); rest = rest.filter((id) => !placed.has(id));
   }
   return action === "stop" || action === "remove" ? layers.reverse() : layers;
+}
+
+/** Service names are only unique inside a Compose project: two stacks may both have a "db". */
+const PROJECT = "com.docker.compose.project";
+const serviceKey = (c, service) => `${c.labels?.[PROJECT] ?? ""}\u0000${service}`;
+function serviceIndex(list) {
+  const m = new Map();
+  for (const c of list) { const s = c.labels?.["com.docker.compose.service"]; if (s) { const k = serviceKey(c, s); m.set(k, [...(m.get(k) ?? []), c]); } }
+  return m;
 }
 
 /* ---------- custom groups ---------- */
@@ -99,4 +106,65 @@ export function planMove(assignments, names, group) {
     else if (next[n] !== target) { next[n] = target; moved.push(n); }
   }
   return { next, moved, group: target };
+}
+
+/* ---------- waiting for dependencies (Compose depends_on conditions) ---------- */
+
+/** "db:service_healthy:false,job:service_completed_successfully:false" -> [{ service, condition }] (default: service_started) */
+export function parseDependencies(label) {
+  return String(label ?? "").split(",").map((p) => p.split(":").map((x) => x.trim())).filter((p) => p[0]).map(([service, condition]) => ({ service, condition: condition || "service_started" }));
+}
+
+/**
+ * For each container, the containers it must wait for and under which condition. Dependencies are looked up in
+ * `universe` (every container, so one outside the selection is waited for too) but only inside the same Compose
+ * project. Self-references are ignored.
+ * @returns Map<id, [{ id, service, condition }]>
+ */
+export function dependencyRequirements(containers, universe = containers) {
+  const byService = serviceIndex(universe);
+  const out = new Map();
+  for (const c of containers) {
+    const reqs = [];
+    for (const d of parseDependencies(c.labels?.["com.docker.compose.depends_on"])) for (const dep of byService.get(serviceKey(c, d.service)) ?? []) if (dep.id !== c.id) reqs.push({ id: dep.id, service: d.service, condition: d.condition });
+    out.set(c.id, reqs);
+  }
+  return out;
+}
+
+/**
+ * Is a dependency ready, still to wait for, or hopeless? `state` is the `State` block of its docker inspect.
+ * A dependency with no health check is not waited for (there is nothing to wait for).
+ * @returns { state: "ready" } | { state: "wait" } | { state: "fail", code: "dep_unhealthy" | "dep_exited" }
+ */
+export function evaluateDependency(condition, state) {
+  const s = state ?? {};
+  if (condition === "service_healthy") {
+    if (!s.Running && !s.Restarting) return { state: "fail", code: "dep_exited" };
+    const h = s.Health?.Status;
+    if (h === undefined || h === "healthy") return { state: "ready" };
+    return h === "unhealthy" ? { state: "fail", code: "dep_unhealthy" } : { state: "wait" };
+  }
+  if (condition === "service_completed_successfully") {
+    if (s.Running || s.Restarting) return { state: "wait" };
+    if (s.Status === "exited") return s.ExitCode === 0 ? { state: "ready" } : { state: "fail", code: "dep_exited" };
+    return { state: "wait" }; // created: it has not run yet
+  }
+  return { state: "ready" }; // service_started and anything unknown
+}
+
+/**
+ * Polls `check()` (returns the dependency's State) until it is ready, fails or the time runs out.
+ * @returns { ok: true } | { ok: false, code: "dep_timeout" | "dep_unhealthy" | "dep_exited" | "dep_missing" }
+ */
+export async function waitForDependency(condition, check, { timeoutMs = 90000, intervalMs = 500, now = Date.now, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {}) {
+  const start = now();
+  for (;;) {
+    let r;
+    try { r = evaluateDependency(condition, await check()); } catch { return { ok: false, code: "dep_missing" }; }
+    if (r.state === "ready") return { ok: true };
+    if (r.state === "fail") return { ok: false, code: r.code };
+    if (now() - start >= timeoutMs) return { ok: false, code: "dep_timeout" };
+    await sleep(intervalMs);
+  }
 }

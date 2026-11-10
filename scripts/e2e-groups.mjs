@@ -18,7 +18,8 @@ for (let i = 0; i < 60; i++) { try { if ((await fetch(BASE)).ok) break; } catch 
 
 const get = async (path, init) => { const r = await fetch(BASE + path, init); return { status: r.status, body: await r.json().catch(() => ({})) }; };
 const batch = (action, ids, init = {}) => get("/api/containers/batch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, ids }), ...init });
-const ops = () => new Promise((res) => http.get({ socketPath: sock, path: "/_demo/ops" }, (r) => { let b = ""; r.on("data", (d) => (b += d)); r.on("end", () => res(JSON.parse(b))); }));
+// the mock also logs "healthy" transitions; these tests only count real start/stop/restart/remove calls
+const ops = () => new Promise((res) => http.get({ socketPath: sock, path: "/_demo/ops" }, (r) => { let b = ""; r.on("data", (d) => (b += d)); r.on("end", () => res(JSON.parse(b).filter((o) => o.action !== "healthy"))); }));
 const list = async () => (await get("/api/containers")).body;
 const id = async (n) => (await list()).find((c) => c.name === n).id;
 const state = async (n) => (await list()).find((c) => c.name === n)?.state;

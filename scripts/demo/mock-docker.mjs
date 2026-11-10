@@ -14,6 +14,10 @@ const images = IMAGES.map((i) => ({ ...i, RepoTags: i.RepoTags ? [...i.RepoTags]
 const volumes = VOLUMES.map((v) => ({ ...v }));
 let cache = BUILD_CACHE.map((c) => ({ ...c }));
 const listeners = new Set();
+const healthAt = new Map();   // name -> when its health check will first pass (set on every start)
+const healthSeen = new Set(); // names whose "became healthy" has been logged since the last start
+const healthOverride = new Map(); // name -> forced status (demo only)
+const HEALTH_MS = Number(process.env.MOCK_HEALTH_MS ?? 1200);
 const ops = []; // ordered log of start/stop/restart/remove calls (read it at /_demo/ops)
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const emit = (type, action, name, image = "", extra = {}) => {
@@ -27,7 +31,9 @@ const find = (idOrName) => state.find((c) => c.id.startsWith(idOrName) || c.name
 /** A believable `docker inspect` built from the demo data. */
 function inspectOf(c) {
   const d = DETAILS[c.name] ?? {}, iso = (daysAgo) => new Date(Date.now() - daysAgo * 864e5).toISOString(), up = c.state === "running";
-  const health = d.health ? { Status: d.health.status, FailingStreak: d.health.streak, Log: d.health.log.map(([code, out], i, a) => ({ Start: new Date(Date.now() - (a.length - i) * 3e4).toISOString(), End: new Date(Date.now() - (a.length - i) * 3e4 + 800).toISOString(), ExitCode: code, Output: out })) } : undefined;
+  const status = !d.health ? undefined : healthOverride.get(c.name) ?? (up && Date.now() < (healthAt.get(c.name) ?? 0) ? "starting" : d.health.status);
+  if (status === "healthy" && up && !healthSeen.has(c.name)) { healthSeen.add(c.name); ops.push({ action: "healthy", name: c.name, at: Date.now() }); }
+  const health = d.health ? { Status: status, FailingStreak: status === "unhealthy" ? Math.max(d.health.streak, 3) : d.health.streak, Log: d.health.log.map(([code, out], i, a) => ({ Start: new Date(Date.now() - (a.length - i) * 3e4).toISOString(), End: new Date(Date.now() - (a.length - i) * 3e4 + 800).toISOString(), ExitCode: code, Output: out })) } : undefined;
   const ports = {}; for (const [pub, priv] of c.ports) ports[`${priv}/tcp`] = [{ HostIp: "127.0.0.1", HostPort: String(pub) }];
   if (c.name === "shop-api") ports["9229/tcp"] = null;
   return {
@@ -88,7 +94,7 @@ http.createServer(async (req, res) => {
       ops.push({ action: r[2], name: c.name, at: Date.now() }); await delay(120); // a little work, so concurrent layers overlap
       const was = c.state;
       if (r[2] === "stop") { c.state = "exited"; c.status = "Exited (143) just now"; emit("container", "die", c.name, c.image, { exitCode: "143" }); emit("container", "stop", c.name, c.image); } // exit code 143 like a real `docker stop` (SIGTERM)
-      else { c.state = "running"; c.status = "Up a few seconds"; emit("container", r[2] === "restart" && was === "running" ? "restart" : "start", c.name, c.image); }
+      else { c.state = "running"; c.status = "Up a few seconds"; healthAt.set(c.name, Date.now() + HEALTH_MS); healthSeen.delete(c.name); emit("container", r[2] === "restart" && was === "running" ? "restart" : "start", c.name, c.image); }
       res.writeHead(204); return res.end();
     }
   }
@@ -145,6 +151,7 @@ http.createServer(async (req, res) => {
     listeners.add(res); req.on("close", () => listeners.delete(res)); return;
   }
   if (m === "GET" && p === "/_demo/ops") return json(res, ops);
+  if (m === "POST" && (r = p.match(/^\/_demo\/health\/([^/]+)\/(starting|unhealthy|healthy|none)$/))) { if (r[2] === "none") healthOverride.delete(r[1]); else healthOverride.set(r[1], r[2]); return json(res, { ok: true }); }
   if (m === "POST" && (r = p.match(/^\/_demo\/(crash|oom|unhealthy|healthy)\/([^/]+)$/))) {
     // Fault injection for demos and the alerts end-to-end test; it does not exist in the real Docker API.
     const c = find(r[2]); if (!c) return json(res, { message: "No such container" }, 404);
