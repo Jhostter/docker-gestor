@@ -19,6 +19,7 @@ const CreateForm = dynamic(() => import("./CreateForm"), { ssr: false });
 const Logs = dynamic(() => import("./Logs"), { ssr: false });
 const AlertsView = dynamic(() => import("./Alerts"), { ssr: false });
 const DiskView = dynamic(() => import("./Disk"), { ssr: false });
+const Detail = dynamic(() => import("./Detail"), { ssr: false });
 type AlertsPublic = import("./Alerts").AlertsPublic;
 
 const TABS = [
@@ -50,6 +51,7 @@ function App() {
   const [logs, setLogs] = useState<Container | null>(null);
   const [term, setTerm] = useState<Container | null>(null);
   const [chart, setChart] = useState<Container | null>(null);
+  const [detail, setDetail] = useState<Container | null>(null);
   const [creating, setCreating] = useState(false);
   const [help, setHelp] = useState(false);
   const [output, setOutput] = useState<{ title: string; text: string } | null>(null);
@@ -183,7 +185,7 @@ function App() {
 
       <main className="min-w-0 flex-1 p-4 pb-20 md:p-6">
         {online === false && <div role="alert" className="mb-4 rounded-lg border border-bad/40 bg-bad/10 p-3 text-sm text-bad">{t("lost_banner")} <code>systemctl --user status docker-gestor</code>.</div>}
-        {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, setLogs, setTerm, setChart, running }} />}
+        {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, setLogs, setTerm, setChart, setDetail, running }} />}
         {tab === "compose" && <ComposeView {...{ stacks, busy, run, confirm, setOutput, goTo: (name: string) => { setTab("containers"); setTimeout(() => setSearch(name), 0); } }} />}
         {tab === "images" && <ImagesView {...{ images, containers, busy, run, confirm, search, setSearch, searchRef }} />}
         {tab === "volumes" && <VolumesView {...{ volumes, busy, run, confirm, search, setSearch, searchRef }} />}
@@ -195,6 +197,7 @@ function App() {
 
       <div className="fixed bottom-3 left-3 flex gap-1 rounded-lg bg-surface p-1 shadow-lg ring-1 ring-line md:hidden"><Btn icon={dark ? "sun" : "moon"} label={t("theme_toggle")} onClick={toggleTheme} /><Btn label={t("lang_label")} onClick={toggleLang}>{lang.toUpperCase()}</Btn></div>
 
+      {detail && <Detail id={detail.id} name={detail.name} onClose={() => setDetail(null)} onLogs={() => { setLogs(detail); setDetail(null); }} onTerminal={() => { setTerm(detail); setDetail(null); }} onChart={() => { setChart(detail); setDetail(null); }} />}
       {logs && <Logs id={logs.id} name={logs.name} onClose={() => setLogs(null)} />}
       {term && <Terminal id={term.id} name={term.name} onClose={() => setTerm(null)} />}
       {chart && <HistoryChart name={chart.name} onClose={() => setChart(null)} />}
@@ -210,9 +213,9 @@ function App() {
 type CV = {
   containers: Container[] | null; stats: Record<string, Stat>; busy: Set<string>; search: string; setSearch: (s: string) => void; searchRef: React.Ref<HTMLInputElement>; running: number;
   ctl: (c: Container, a: "start" | "stop" | "restart") => void; del: (c: Container) => void; openCreate: () => void;
-  setLogs: (c: Container) => void; setTerm: (c: Container) => void; setChart: (c: Container) => void;
+  setLogs: (c: Container) => void; setTerm: (c: Container) => void; setChart: (c: Container) => void; setDetail: (c: Container) => void;
 };
-function ContainersView({ containers, stats, busy, search, setSearch, searchRef, running, ctl, del, openCreate, setLogs, setTerm, setChart }: CV) {
+function ContainersView({ containers, stats, busy, search, setSearch, searchRef, running, ctl, del, openCreate, setLogs, setTerm, setChart, setDetail }: CV) {
   const { t } = useT();
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
   const [group, setGroup] = useState(true);
@@ -249,7 +252,7 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
           <div key={name}>
             {group && <h3 className="mb-1.5 mt-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted"><Icon name="layers" className="size-3.5" />{name || t("no_stack")}<span className="font-normal">({items.length})</span></h3>}
             <Card className="divide-y divide-line overflow-hidden">
-              {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], busy: busy.has(c.id), ctl, del, setLogs, setTerm, setChart }} />)}
+              {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], busy: busy.has(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} />)}
             </Card>
           </div>
         ))}
@@ -257,14 +260,14 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
   );
 }
 
-function Row({ c, s, busy, ctl, del, setLogs, setTerm, setChart }: { c: Container; s?: Stat; busy: boolean; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"] }) {
+function Row({ c, s, busy, ctl, del, setLogs, setTerm, setChart, setDetail }: { c: Container; s?: Stat; busy: boolean; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
   const { t } = useT();
   const up = c.state === "running";
   const tone = up ? (/unhealthy/.test(c.status) ? "bad" : /starting/.test(c.status) ? "warn" : "ok") : c.state === "exited" || c.state === "created" ? "muted" : "warn";
   return (
     <div className="grid items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.4fr)_7rem_7rem_auto]">
       <div className="min-w-0">
-        <p className="truncate font-medium" title={c.name}>{c.name}</p>
+        <button onClick={() => setDetail(c)} className="block max-w-full truncate text-left font-medium hover:text-accent hover:underline" title={`${c.name} — ${t("act_details")}`}>{c.name}</button>
         <p className="truncate text-xs text-muted" title={c.image}>{c.image}</p>
         {c.ports.length > 0 && <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs">{c.ports.map((p) => /\/tcp$/.test(p)
           ? <a key={p} href={`http://localhost:${hostPort(p)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-accent hover:underline" title={t("open_url", { port: hostPort(p) })}>:{p.replace("/tcp", "")}<Icon name="link" className="size-3" /></a>
@@ -276,6 +279,7 @@ function Row({ c, s, busy, ctl, del, setLogs, setTerm, setChart }: { c: Containe
       <div className="flex items-center gap-0.5 justify-self-end">
         {up ? <Btn kind="ghost" icon="stop" label={t("act_stop")} busy={busy} onClick={() => ctl(c, "stop")} /> : <Btn kind="ghost" icon="play" label={t("act_start")} busy={busy} onClick={() => ctl(c, "start")} />}
         <Btn kind="ghost" icon="restart" label={t("act_restart")} disabled={busy} onClick={() => ctl(c, "restart")} />
+        <Btn kind="ghost" icon="info" label={t("act_details")} onClick={() => setDetail(c)} />
         <Btn kind="ghost" icon="logs" label={t("act_logs")} onClick={() => setLogs(c)} />
         {up && <Btn kind="ghost" icon="term" label={t("act_term")} onClick={() => setTerm(c)} />}
         <Btn kind="ghost" icon="chart" label={t("act_chart")} onClick={() => setChart(c)} />

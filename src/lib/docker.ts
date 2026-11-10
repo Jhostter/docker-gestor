@@ -19,8 +19,8 @@ export function guard(req: Request): Response | null {
   return null;
 }
 
-export const json = (data: unknown, status = 200) =>
-  new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
+export const json = (data: unknown, status = 200, headers: Record<string, string> = {}) =>
+  new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json", ...headers } });
 
 /** Connection errors → actionable message plus a `code` the UI translates; anything else → 500 with the original message. */
 export function fail(e: unknown) {

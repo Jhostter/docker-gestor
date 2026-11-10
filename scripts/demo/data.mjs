@@ -15,9 +15,27 @@ export const CONTAINERS = [
   { name: "grafana", image: "grafana/grafana:11.3.0", ports: [[3001, 3000]], labels: MON, status: "Up 2 days", cpu: 1.1, mem: 96, kind: "api" },
   { name: "prometheus", image: "prom/prometheus:v2.55.0", ports: [[9090, 9090]], labels: MON, status: "Up 2 days", cpu: 2.7, mem: 231, kind: "api" },
   { name: "node-exporter", image: "prom/node-exporter:v1.8.2", ports: [], labels: MON, status: "Up 2 days", cpu: 0.3, mem: 12, kind: "redis" },
-  { name: "mailpit", image: "axllent/mailpit:v1.21", ports: [[8025, 8025], [1025, 1025]], labels: {}, status: "Up 5 hours", cpu: 0.2, mem: 21, kind: "api" },
+  { name: "mailpit", image: "axllent/mailpit:v1.21", ports: [[8025, 8025], [1025, 1025]], labels: {}, status: "Up 5 hours (unhealthy)", cpu: 0.2, mem: 21, kind: "api" },
   { name: "old-experiment", image: "alpine:3.20", ports: [], labels: {}, status: "Exited (0) 6 hours ago", cpu: 0, mem: 0, kind: "api", state: "exited" },
 ].map((c) => ({ ...c, id: id(c.name), state: c.state ?? "running" }));
+
+/** Extra `docker inspect` detail per container (all fictional; the "secrets" are obviously fake). */
+export const DETAILS = {
+  "shop-web": { env: ["NGINX_HOST=shop.local", "NGINX_PORT=80"], mounts: [["bind", "", "/srv/demo/shop/nginx.conf", "/etc/nginx/nginx.conf", false]], network: "shop_default", started: 3 },
+  "shop-api": { env: ["NODE_ENV=production", "PORT=3000", "LOG_LEVEL=info", "JWT_SECRET=demo-jwt-secret-value", "STRIPE_API_KEY=sk_test_demo_not_a_real_key", "DATABASE_URL=postgres://shop:demo-pass@shop-db:5432/shop", "REDIS_URL=redis://shop-cache:6379", "ANON_KEY=eyJhbGciOiJub25lIn0.eyJkZW1vIjp0cnVlfQ.ZGVtby1zaWduYXR1cmU", "CLIENT_CONFIG=eyJhbGciOiJub25lIn0.eyJkZW1vIjp0cnVlfQ.ZGVtby1zaWduYXR1cmU", "DB_ENC_KEY=demo-enc-key-value"],
+    mounts: [["bind", "", "/srv/demo/shop/uploads", "/app/uploads", true]], network: "shop_default", started: 3, memory: 512 * 1048576, restart: "unless-stopped", cmd: ["node", "server.js", "--port=3000"],
+    health: { status: "healthy", streak: 0, log: [[1, "wget: can't connect to remote host"], [0, "OK"], [0, "OK"], [0, "OK"], [0, "OK"]] } },
+  "shop-db": { env: ["POSTGRES_USER=shop", "POSTGRES_PASSWORD=demo-db-password", "POSTGRES_DB=shop", "PGDATA=/var/lib/postgresql/data"], mounts: [["volume", "shop_pgdata", "/var/lib/docker/volumes/shop_pgdata/_data", "/var/lib/postgresql/data", true]], network: "shop_default", started: 3, memory: 1024 * 1048576, restart: "unless-stopped",
+    health: { status: "healthy", streak: 0, log: [[0, "/var/run/postgresql:5432 - accepting connections"], [0, "/var/run/postgresql:5432 - accepting connections"], [0, "/var/run/postgresql:5432 - accepting connections"]] } },
+  "shop-cache": { env: [], mounts: [["volume", "shop_redis", "/var/lib/docker/volumes/shop_redis/_data", "/data", true]], network: "shop_default", started: 3 },
+  "shop-worker": { env: ["NODE_ENV=production", "QUEUE=default", "API_TOKEN=demo-worker-token"], mounts: [], network: "shop_default", started: 3, restartCount: 2, restart: "on-failure" },
+  grafana: { env: ["GF_SECURITY_ADMIN_PASSWORD=demo-grafana-admin", "GF_USERS_ALLOW_SIGN_UP=false"], mounts: [["volume", "grafana_data", "/var/lib/docker/volumes/grafana_data/_data", "/var/lib/grafana", true]], network: "monitoring_default", started: 2 },
+  prometheus: { env: [], mounts: [["volume", "prometheus_data", "/var/lib/docker/volumes/prometheus_data/_data", "/prometheus", true], ["bind", "", "/srv/demo/monitoring/prometheus.yml", "/etc/prometheus/prometheus.yml", false]], network: "monitoring_default", started: 2 },
+  "node-exporter": { env: [], mounts: [["bind", "", "/", "/host", false]], network: "host", started: 2, hostNetwork: true, hostPid: true },
+  mailpit: { env: ["MP_SMTP_AUTH_ACCEPT_ANY=1"], mounts: [["volume", "mailpit_data", "/var/lib/docker/volumes/mailpit_data/_data", "/data", true]], network: "bridge", started: 0.2, restart: "always", restartCount: 4,
+    health: { status: "unhealthy", streak: 4, log: [[0, "OK"], [1, "wget: can't connect to remote host: Connection refused"], [1, "wget: can't connect to remote host: Connection refused"], [1, "wget: can't connect to remote host: Connection refused"], [1, "wget: can't connect to remote host: Connection refused"]] } },
+  "old-experiment": { env: ["EXPERIMENT=1"], mounts: [["volume", "old_experiment_data", "/var/lib/docker/volumes/old_experiment_data/_data", "/data", true]], network: "bridge", started: 1, exited: { code: 137, oom: true }, restartCount: 3 },
+};
 
 const now = Math.floor(Date.now() / 1000);
 export const IMAGES = [

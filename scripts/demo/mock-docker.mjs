@@ -3,7 +3,7 @@
 //   node scripts/demo/mock-docker.mjs /path/to/mock.sock       (then: DOCKER_SOCKET=/path/to/mock.sock npm start)
 import http from "node:http";
 import { rmSync } from "node:fs";
-import { CONTAINERS, IMAGES, VOLUMES, VOLUME_META, BUILD_CACHE, SHARED, SIZE_RW, NETWORKS, rnd } from "./data.mjs";
+import { CONTAINERS, DETAILS, IMAGES, VOLUMES, VOLUME_META, BUILD_CACHE, SHARED, SIZE_RW, NETWORKS, rnd } from "./data.mjs";
 
 const sock = process.argv[2];
 if (!sock) { console.error("usage: mock-docker.mjs <socket-path>"); process.exit(1); }
@@ -21,6 +21,22 @@ const emit = (type, action, name, image = "", extra = {}) => {
 const json = (res, data, code = 200) => { res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(data)); };
 const ctrId = (name) => state.find((c) => c.name === name)?.id ?? name;
 const find = (idOrName) => state.find((c) => c.id.startsWith(idOrName) || c.name === idOrName);
+
+/** A believable `docker inspect` built from the demo data. */
+function inspectOf(c) {
+  const d = DETAILS[c.name] ?? {}, iso = (daysAgo) => new Date(Date.now() - daysAgo * 864e5).toISOString(), up = c.state === "running";
+  const health = d.health ? { Status: d.health.status, FailingStreak: d.health.streak, Log: d.health.log.map(([code, out], i, a) => ({ Start: new Date(Date.now() - (a.length - i) * 3e4).toISOString(), End: new Date(Date.now() - (a.length - i) * 3e4 + 800).toISOString(), ExitCode: code, Output: out })) } : undefined;
+  const ports = {}; for (const [pub, priv] of c.ports) ports[`${priv}/tcp`] = [{ HostIp: "127.0.0.1", HostPort: String(pub) }];
+  if (c.name === "shop-api") ports["9229/tcp"] = null;
+  return {
+    Id: c.id, Created: iso(14), Path: (d.cmd ?? ["/docker-entrypoint.sh"])[0], Args: (d.cmd ?? []).slice(1), Image: `sha256:${c.id.slice(0, 64)}`, Name: `/${c.name}`, RestartCount: d.restartCount ?? 0, Platform: "linux",
+    State: { Status: up ? "running" : "exited", Running: up, Paused: false, Restarting: false, OOMKilled: !!d.exited?.oom, Dead: false, Pid: up ? 4000 : 0, ExitCode: up ? 0 : (d.exited?.code ?? 0), Error: "", StartedAt: iso(d.started ?? 1), FinishedAt: up ? "0001-01-01T00:00:00Z" : iso(0.4), ...(health ? { Health: health } : {}) },
+    HostConfig: { NetworkMode: d.network ?? "bridge", RestartPolicy: { Name: d.restart ?? "no", MaximumRetryCount: 0 }, Privileged: false, PidMode: d.hostPid ? "host" : "", CapAdd: null, Memory: d.memory ?? 0, MemorySwap: d.memory ? d.memory * 2 : 0, NanoCpus: 0, CpuShares: 0, PidsLimit: null },
+    Mounts: (d.mounts ?? []).map(([Type, Name, Source, Destination, RW]) => ({ Type, Name, Source, Destination, Driver: Type === "volume" ? "local" : undefined, Mode: RW ? "rw" : "ro", RW, Propagation: "rprivate" })),
+    Config: { Hostname: c.id.slice(0, 12), User: "", Tty: false, Image: c.image, WorkingDir: "/app", Env: ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", ...(d.env ?? [])], Cmd: d.cmd ?? ["serve"], Entrypoint: null, Labels: { ...c.labels, "org.opencontainers.image.source": "https://example.com/acme/" + c.name } },
+    NetworkSettings: { Ports: ports, Networks: { [d.network ?? "bridge"]: { IPAddress: up ? `172.20.0.${2 + (c.name.length % 200)}` : "", Gateway: up ? "172.20.0.1" : "", MacAddress: up ? "02:42:ac:14:00:0" + (c.name.length % 9) : "", Aliases: [c.name] } } },
+  };
+}
 
 const summary = (c) => ({
   Id: c.id, Names: [`/${c.name}`], Image: c.image, State: c.state, Status: c.status, Labels: c.labels,
@@ -52,7 +68,7 @@ http.createServer((req, res) => {
   if (m === "GET" && p === "/containers/json") return json(res, state.filter((c) => u.searchParams.get("all") === "true" || c.state === "running").map(summary));
   if ((r = p.match(/^\/containers\/([^/]+)\/(json|stats|logs|start|stop|restart)$/))) {
     const c = find(r[1]); if (!c) return json(res, { message: "No such container" }, 404);
-    if (r[2] === "json" && m === "GET") return json(res, { Id: c.id, Name: `/${c.name}`, Config: { Tty: false, Image: c.image }, State: { Running: c.state === "running", Restarting: false, Paused: c.state === "paused" } });
+    if (r[2] === "json" && m === "GET") return json(res, inspectOf(c));
     if (r[2] === "stats") return json(res, stats(c));
     if (r[2] === "logs") {
       res.writeHead(200, { "content-type": "application/vnd.docker.raw-stream" });

@@ -1,0 +1,20 @@
+export const MASK: string;
+export type Flag = { id: "privileged" | "dockerSock" | "rootMount" | "hostPid" | "hostNetwork" | "capAdd"; level: "danger" | "warn"; detail?: string };
+export type Inspect = {
+  id: string; name: string; image: string; imageId: string; created: string; platform?: string;
+  state: { status: string; running: boolean; paused: boolean; restarting: boolean; oomKilled: boolean; exitCode: number; error: string; startedAt: string; finishedAt: string };
+  restartCount: number; restartPolicy: { name: string; max: number };
+  path: string; args: string[]; entrypoint: string[]; cmd: string[]; workingDir: string; user: string; hostname: string; tty: boolean;
+  health: null | { status: string; failingStreak: number; log: { start: string; end: string; exitCode: number; output: string }[] };
+  env: { name: string; value: string | null; secret: boolean }[];
+  mounts: { type: string; name: string; source: string; destination: string; rw: boolean }[];
+  ports: { container: string; host: { ip: string; port: string }[] }[];
+  networks: { name: string; ip: string; gateway: string; mac: string; aliases: string[] }[];
+  limits: { memory: number; memorySwap: number; nanoCpus: number; cpuShares: number; pids: number };
+  flags: Flag[]; labels: Record<string, string>; raw: unknown;
+};
+export function isSecret(name: string, value?: string): boolean;
+export function parseEnv(list?: string[]): Inspect["env"];
+export function envValue(raw: unknown, name: string): string | undefined;
+export function shapeInspect(raw: unknown): Inspect;
+export function maskedRaw(raw: unknown): unknown;

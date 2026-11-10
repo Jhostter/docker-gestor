@@ -27,3 +27,5 @@ jobs:
         if: runner.os == 'Linux'
       - run: npm run e2e:disk
         if: runner.os == 'Linux'
+      - run: npm run e2e:detail
+        if: runner.os == 'Linux'
