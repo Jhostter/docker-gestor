@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Drag and drop between custom groups.** Every row in *My groups* has a ⠿ handle; drag it onto a group to move the container. Dragging a selected row moves the whole selection. While dragging, two extra zones appear: take containers out of their group, and create a new group (asks for a name). The screen updates instantly and rolls back with an error message if the server refuses. *Move to group…* remains the keyboard and touch alternative.
+- `npm run e2e:dnd`: a drag test with a **real** mouse drag replayed through Chrome's DevTools drag interception (negative-control tested for the rollback and for dragging a selection).
+
+### Changed
+- The drag handle is larger and easier to find.
+
 ## [0.4.0] - 2026-11-10
 
 ### Added

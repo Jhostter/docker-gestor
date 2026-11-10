@@ -166,10 +166,13 @@ Next to the search box, **Group by** switches between **Stack** (Compose project
 In **My groups** you decide how containers are organised, independently of Compose: for example *Frontend*, *Data* or *Experiments*.
 
 - **Create or fill a group:** select containers and press **Move to group…**. Type a new name or pick an existing one (names are case-insensitive: typing `frontend` joins `Frontend`). A container belongs to one group at a time.
+- **Drag and drop:** in *My groups* every row has a **⠿ handle**. Drag it onto any group to move the container there. If the row you grab is selected, **the whole selection** moves together. While you drag, two extra drop zones appear: one to **take containers out of their group** and one to **create a new group** (it asks for a name). The screen updates at once and goes back to how it was, with an error message, if the server refuses.
 - **Remove from a group:** select the containers, press **Move to group…** and choose **Remove from group**.
 - **Rename:** the pencil in the group header. Renaming to an existing group **merges** the two.
 - **Dissolve:** the ✕ in the group header. **The containers are never touched**: they just stop belonging to the group.
 - A custom group works exactly like a stack: **start all / stop all / restart all** (with the same dependency-aware ordering when the containers come from Compose), selection and collapsing.
+
+Drag and drop uses the browser's native drag, which **does not work on touch screens**; there, and for keyboard use, **Move to group…** does the same. Dragging is only available in *My groups* (Compose stacks come from Compose).
 
 Groups are stored on the server, **by container name**, so they survive recreating a container (typical with Compose) and are the same from any browser. There can be up to 50 groups with names of 1 to 40 characters. Assignments of containers that no longer exist are kept, so a stack you bring `down` and back `up` returns to its group.
 
@@ -526,7 +529,7 @@ Connection errors answer `503` with a `code` (`docker_unreachable`, `docker_deni
 ```bash
 systemctl --user stop docker-gestor     # frees port 4455
 npm run dev                             # hot reload
-npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups && npm run e2e:custom-groups
+npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups && npm run e2e:custom-groups && npm run e2e:dnd
 ```
 
 No Docker at hand? Run the fake API: `node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &` then `DOCKER_SOCKET=/tmp/docker-mock.sock npm run dev`.

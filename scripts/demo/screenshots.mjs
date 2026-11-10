@@ -79,6 +79,25 @@ await open({ h: 1650 }); await click("Alerts"); await sleep(1500); await png("al
 
 await open({ mode: "custom" }); await sleep(300); await png("custom-groups");
 
+// a real drag, paused over its destination, to show the drop highlight
+await open({ mode: "custom", h: 1500 });
+{
+  let data = null; ws.on("message", (m) => { const d = JSON.parse(m); if (d.method === "Input.dragIntercepted") data = d.params.data; });
+  await send("Input.setInterceptDrags", { enabled: true });
+  const at = async (expr) => JSON.parse(await ev(`(()=>{const e=${expr};e.scrollIntoView({block:"center"});const r=e.getBoundingClientRect();return JSON.stringify({x:r.x+r.width/2,y:r.y+r.height/2})})()`));
+  const a = await at(`document.querySelector('[data-drag-handle="node-exporter"]')`);
+  await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: a.x, y: a.y });
+  await send("Input.dispatchMouseEvent", { type: "mousePressed", x: a.x, y: a.y, button: "left", buttons: 1, clickCount: 1 });
+  for (let i = 1; i <= 4; i++) await send("Input.dispatchMouseEvent", { type: "mouseMoved", x: a.x + i * 6, y: a.y + i * 6, button: "left", buttons: 1 });
+  for (let i = 0; i < 30 && !data; i++) await sleep(100);
+  await sleep(300);
+  const b = await at(`[...document.querySelectorAll('button[aria-expanded]')].find(x=>x.textContent.toLowerCase().includes("data")).closest("div[class]").parentElement`);
+  await send("Input.dispatchDragEvent", { type: "dragEnter", x: b.x, y: b.y, data }); await send("Input.dispatchDragEvent", { type: "dragOver", x: b.x, y: b.y, data });
+  await sleep(300); await png("drag-drop");
+  await send("Input.dispatchDragEvent", { type: "dragCancel", x: b.x, y: b.y, data }); await send("Input.dispatchMouseEvent", { type: "mouseReleased", x: b.x, y: b.y, button: "left", buttons: 0, clickCount: 1 });
+  await send("Input.setInterceptDrags", { enabled: false });
+}
+
 await open();
 await ev(`for (const n of ["shop-web", "shop-api", "grafana"]) document.querySelector('input[aria-label="Select ' + n + '"]').click()`); await sleep(400); await png("groups");
 

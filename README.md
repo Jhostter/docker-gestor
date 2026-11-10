@@ -30,7 +30,7 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 ## Features
 
 - **Containers** — list, search, filter, group by Compose stack; start / stop / restart / remove; clickable published ports; live CPU and memory per container.
-- **Manage by stack or selection** — start, stop or restart a whole group (or any selection) in one click, **in dependency order** when Compose declares it (database before API, reverse to stop). Works for any group, including stacks Compose cannot manage, and for **your own groups** (create them from a selection, rename, merge, dissolve — containers are never touched).
+- **Manage by stack or selection** — start, stop or restart a whole group (or any selection) in one click, **in dependency order** when Compose declares it (database before API, reverse to stop). Works for any group, including stacks Compose cannot manage, and for **your own groups** (create them from a selection or by **drag and drop**, rename, merge, dissolve — containers are never touched).
 - **Live logs** — streaming, filtering, timestamps toggle, error/warning highlighting, download.
 - **Terminal** — interactive shell inside a running container (xterm.js over WebSocket).
 - **Create containers** — image, ports, env vars, volumes, restart policy and network, with live validation. Pulls the image if missing.
@@ -55,7 +55,7 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 | ![Disk usage](docs/img/disk.png) **Disk usage and safe cleanup** | ![Container details](docs/img/detail.png) **Container details** |
 | ![Environment, secrets hidden](docs/img/detail-env.png) **Secrets stay hidden until you ask** | ![Images](docs/img/images.png) **Images** |
 | ![Groups and bulk actions](docs/img/groups.png) **Stack actions and selection** | ![Custom groups](docs/img/custom-groups.png) **Your own groups** |
-| ![Spanish UI](docs/img/containers-es.png) **Spanish UI** | |
+| ![Drag and drop](docs/img/drag-drop.png) **Drag and drop between groups** | ![Spanish UI](docs/img/containers-es.png) **Spanish UI** |
 
 <p align="center"><img src="docs/img/mobile.png" alt="Mobile layout" width="260"></p>
 
@@ -157,6 +157,7 @@ npm run e2e:disk     # disk cleanup end-to-end (incl. refusing to delete things 
 npm run e2e:detail   # container details end-to-end (secrets must never leak)
 npm run e2e:groups   # stack actions end-to-end (dependency ordering, partial failures)
 npm run e2e:custom-groups   # custom groups end-to-end (persistence, rename/merge, limits)
+npm run e2e:dnd      # drag and drop with a real mouse drag (needs Chrome/Chromium)
 ```
 
 Stack: Next.js (App Router) · React · Tailwind CSS 4 · dockerode · `node:sqlite` · ws · xterm.js. UI strings live in `src/app/locales/` (adding a language is one file).
@@ -173,7 +174,7 @@ Issues and pull requests are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md)
 
 # 🇪🇸 Español
 
-Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos alertas (Telegram, webhook y navegador), limpieza segura de disco, detalle de contenedor (con secretos ocultos), acciones por stack o selección, grupos propios y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**. La interfaz está en **español e inglés** (selector en la barra lateral).
+Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos alertas (Telegram, webhook y navegador), limpieza segura de disco, detalle de contenedor (con secretos ocultos), acciones por stack o selección, grupos propios (también arrastrando y soltando) y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**. La interfaz está en **español e inglés** (selector en la barra lateral).
 
 **Pensado para una persona y una máquina:** sin servidor de base de datos, sin agente y sin cuentas; solo escucha en `127.0.0.1` y no hace trabajo mientras nadie mira la página. Si necesitas varios usuarios, varios hosts o Kubernetes, usa una herramienta más grande (Portainer y similares).
 

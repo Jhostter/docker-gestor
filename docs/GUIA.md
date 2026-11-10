@@ -173,10 +173,13 @@ Junto al buscador, **Agrupar por** alterna entre **Stack** (proyectos de Compose
 En **Mis grupos** organizas los contenedores como quieras, con independencia de Compose: por ejemplo *Frontend*, *Datos* o *Experimentos*.
 
 - **Crear o llenar un grupo:** selecciona contenedores y pulsa **Mover a grupo…**. Escribe un nombre nuevo o elige uno existente (los nombres no distinguen mayúsculas: escribir `frontend` entra en `Frontend`). Un contenedor pertenece a un solo grupo a la vez.
+- **Arrastrar y soltar:** en *Mis grupos* cada fila tiene un **asa ⠿**. Arrástrala sobre cualquier grupo para mover el contenedor allí. Si la fila que agarras está seleccionada, **se mueve toda la selección** a la vez. Mientras arrastras aparecen dos zonas extra: una para **sacar los contenedores de su grupo** y otra para **crear un grupo nuevo** (pide el nombre). La pantalla se actualiza al instante y, si el servidor lo rechaza, vuelve a como estaba y muestra el error.
 - **Sacarlos de un grupo:** selecciona los contenedores, pulsa **Mover a grupo…** y elige **Quitar del grupo**.
 - **Renombrar:** el lápiz de la cabecera del grupo. Renombrar a un grupo que ya existe **los fusiona**.
 - **Disolver:** la ✕ de la cabecera del grupo. **Los contenedores nunca se tocan**: solo dejan de pertenecer al grupo.
 - Un grupo personalizado funciona igual que un stack: **iniciar todos / detener todos / reiniciar todos** (con el mismo orden por dependencias cuando los contenedores vienen de Compose), selección y plegado.
+
+El arrastre usa el de serie del navegador, que **no funciona en pantallas táctiles**; allí, y con teclado, **Mover a grupo…** hace lo mismo. Arrastrar solo está disponible en *Mis grupos* (los stacks de Compose los define Compose).
 
 Los grupos se guardan en el servidor, **por nombre de contenedor**, así que sobreviven a recrear un contenedor (lo habitual con Compose) y son los mismos desde cualquier navegador. Puede haber hasta 50 grupos con nombres de 1 a 40 caracteres. Se conservan las asignaciones de contenedores que ya no existen, de modo que un stack que bajas con `down` y vuelves a levantar regresa a su grupo.
 
