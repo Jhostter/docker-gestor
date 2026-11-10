@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.0] - 2026-11-10
 
 ### Added
 - **Manage containers by stack or by selection.** Each group header shows `running/total` with combined CPU and memory and offers start all / stop all / restart all; rows have checkboxes and a bar offers start / stop / restart / delete for any selection, even across groups. Groups can be collapsed (remembered).
