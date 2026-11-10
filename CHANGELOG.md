@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.7.0] - 2026-11-10
 
 ### Added
 - **Live progress for group actions.** A panel lists each container with its state (queued, working, done, skipped, failed) and the current layer, and while a start waits for a dependency it says what for and how long (`Waiting for "db" to be ready… 12 s / 90 s`). It appears only when an action takes more than ~0.6 s, so quick actions do not flash it.
