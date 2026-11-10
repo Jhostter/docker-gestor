@@ -26,7 +26,7 @@ if (!chromePath) { console.error("Chrome/Chromium not found. Set CHROME_PATH.");
 procs.push(spawn(process.execPath, ["scripts/demo/mock-docker.mjs", sock], { stdio: "ignore" }));
 await sleep(800);
 spawnSync(process.execPath, ["scripts/demo/seed-history.mjs"], { env: { ...process.env, DATA_DIR: join(tmp, "data") }, stdio: "ignore" });
-procs.push(spawn(process.execPath, ["server.mjs"], { env: { ...process.env, PORT: String(PORT), DOCKER_SOCKET: sock, DATA_DIR: join(tmp, "data") }, stdio: "ignore" }));
+procs.push(spawn(process.execPath, ["server.mjs"], { env: { ...process.env, PORT: String(PORT), DOCKER_SOCKET: sock, DATA_DIR: join(tmp, "data"), ALERT_HOST: "demo-server", TELEGRAM_API_URL: "http://127.0.0.1:9" }, stdio: "ignore" }));
 for (let i = 0; i < 60; i++) { try { if ((await fetch(BASE)).ok) break; } catch { /* booting */ } await sleep(500); }
 
 // 2) Chrome over the DevTools protocol
@@ -71,6 +71,8 @@ await addIn("Ports"); await type('input[aria-label="Ports 1"]', "8080:80");
 await addIn("Environment variables"); await type('input[aria-label="Environment variables 1"]', "TZ=Europe/Madrid");
 await addIn("Volumes"); await type('input[aria-label="Volumes 1"]', "web_data:/usr/share/nginx/html:ro"); await sleep(300); await png("create");
 
+await open({ h: 1650 }); await click("Alerts"); await sleep(1500); await png("alerts");
+
 await open(); await click("Compose"); await sleep(1500); await png("compose");
 await click("Images"); await sleep(1500); await png("images");
 await click("Events"); await sleep(1500); await png("events");
@@ -99,7 +101,7 @@ if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0) {
   const b2 = JSON.parse(await ev(`JSON.stringify(document.querySelector('[role=dialog] svg[role=img]').getBoundingClientRect())`));
   for (let i = 0; i <= 20; i++) { await mouse(b2.x + b2.width * (0.25 + i * 0.03), b2.y + b2.height / 2); await sleep(60); }
   await click("24 h"); await sleep(1500); await esc();
-  await click("Compose"); await sleep(1300); await click("Events"); await sleep(2000); await click("Containers"); await sleep(900);
+  await click("Compose"); await sleep(1300); await click("Events"); await sleep(2000); await click("Alerts"); await sleep(1800); await click("Containers"); await sleep(900);
   await click("Light theme"); await sleep(1400); await click("Change language"); await sleep(1600);
   rec = false; await recorder;
   const list = frames.map((x, i) => `file '${x.f.replace(/\\/g, "/")}'\nduration ${(((frames[i + 1]?.t ?? x.t + 120) - x.t) / 1000).toFixed(3)}`).join("\n") + `\nfile '${frames.at(-1).f.replace(/\\/g, "/")}'\n`;

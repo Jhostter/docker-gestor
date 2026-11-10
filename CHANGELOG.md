@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Alerts** (off by default): notifications through the browser, **Telegram** and a **webhook** when a container crashes, runs out of memory, becomes unhealthy, restarts in a loop, or stays at high CPU/memory. Stops, restarts and removals you do yourself are ignored; repeats are rate-limited by a cooldown.
+- Alerts section with per-rule switches and thresholds, per-channel test buttons, delivery status and a 30-day history.
+- Secrets (Telegram token, webhook `Authorization`) are stored in a `600` file and never returned to the browser.
+- `ALERT_HOST` to label messages; alert messages follow the UI language.
+- Unit tests for the alert engine and `npm run e2e:alerts`, an end-to-end test against a fake Docker, Telegram and webhook receiver.
+
 ## [0.1.0] - 2026-11-10
 
 First public release.

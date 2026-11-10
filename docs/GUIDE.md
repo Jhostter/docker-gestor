@@ -15,15 +15,16 @@ A local web dashboard to manage Docker from your browser: containers, logs, term
 7. [Volumes](#7-volumes)
 8. [Networks](#8-networks)
 9. [Events](#9-events)
-10. [Keyboard shortcuts](#10-keyboard-shortcuts)
-11. [Theme and language](#11-theme-and-language)
-12. [Usage history and stored data](#12-usage-history-and-stored-data)
-13. [Configuration](#13-configuration)
-14. [Resource usage](#14-resource-usage)
-15. [Security](#15-security)
-16. [Troubleshooting](#16-troubleshooting)
-17. [Uninstall](#17-uninstall)
-18. [For developers](#18-for-developers)
+10. [Alerts](#10-alerts)
+11. [Keyboard shortcuts](#11-keyboard-shortcuts)
+12. [Theme and language](#12-theme-and-language)
+13. [Usage history and stored data](#13-usage-history-and-stored-data)
+14. [Configuration](#14-configuration)
+15. [Resource usage](#15-resource-usage)
+16. [Security](#16-security)
+17. [Troubleshooting](#17-troubleshooting)
+18. [Uninstall](#18-uninstall)
+19. [For developers](#19-for-developers)
 
 ---
 
@@ -77,7 +78,7 @@ sudo loginctl enable-linger $USER       # if it says Linger=no
 
 ## 3. Interface tour
 
-- **Sidebar** (on top on mobile): the six sections. At the bottom: connection status (🟢 *Docker connected*), theme, language and help.
+- **Sidebar** (on top on mobile): the seven sections. At the bottom: connection status (🟢 *Docker connected*), theme, language and help.
 - **Main area**: the active section.
 - **Toasts**: bottom right. Success toasts fade on their own; errors stay a bit longer and can be dismissed with ✕.
 - **Confirmations**: every destructive action asks first and explains what will happen.
@@ -213,13 +214,64 @@ A live stream of what happens in Docker: creating, starting, stopping and destro
 
 These events are also what keeps the UI up to date without polling Docker every few seconds.
 
-## 10. Keyboard shortcuts
+## 10. Alerts
+
+Alerts tell you when something goes wrong, so you do not have to keep the page open. They are **off by default**: nothing runs until you switch them on in the **Alerts** section.
+
+### What it watches
+
+| Rule | Fires when |
+|---|---|
+| **A container crashes** | It exits with a non-zero code **without you stopping it** |
+| **Out of memory (OOM)** | The system kills it for lack of memory |
+| **Unhealthy** | Its health check fails (and a “healthy again” message follows when it recovers) |
+| **Restart loop** | It crashes N times within M minutes (default 3 in 10) |
+| **High CPU** *(off by default)* | It stays above X % for M minutes (default 90 % for 5) |
+| **High memory** *(off by default)* | It stays above X % of its memory limit for M minutes (default 90 % for 2). Without a limit the percentage is of the machine's RAM |
+
+**No noise:** a `stop`, `restart` or removal you do yourself (from this UI or from the command line) is recognised and ignored. The same alert for the same container is not repeated for the **cooldown** period (10 minutes by default; 0 disables it).
+
+### Channels
+
+- **Browser notifications** — a toast always appears in the open page, and a system notification when the tab is in the background. Grant permission with the button in the section. It only works while a Docker Gestor tab is open.
+- **Telegram** — works with the tab closed. Create a bot with [@BotFather](https://t.me/BotFather), send it any message, then enter its **token** and your **chat ID** (a number, or `@yourchannel`).
+- **Webhook** — works with the tab closed. Docker Gestor sends a `POST` to your URL, with an optional `Authorization` header. Format **JSON** works with Discord and Slack webhooks as is (it includes both `text` and `content`); **plain text** suits ntfy and similar services.
+
+```json
+{
+  "text": "[myhost] 🔴 shop-api exited with code 1",
+  "content": "[myhost] 🔴 shop-api exited with code 1",
+  "event": "died",
+  "container": "shop-api",
+  "host": "myhost",
+  "timestamp": "2026-11-10T15:04:05.000Z",
+  "vars": { "code": "1" }
+}
+```
+
+`event` is one of `died`, `oom`, `unhealthy`, `recovered`, `restartLoop`, `cpu`, `memory`, `test`. Use **Send test** (after saving) to check a channel; the section shows the last error or the last successful delivery of each one.
+
+The messages use the language selected in the UI, and start with the machine name so you can tell several computers apart. Change that label with `ALERT_HOST`.
+
+### Where things are stored
+
+- Settings, including the Telegram token and the webhook `Authorization`, are in `alerts.json` inside the data folder, readable only by your user (permissions `600`). They are never sent back to the browser.
+- The alert **history** (30 days) is in the same SQLite database as the usage history.
+
+### Cost and limits
+
+- With alerts **off** there is no extra work. With alerts **on** the service keeps one idle connection to Docker's event stream and checks the usage samples it already takes (measured: no visible difference in CPU or memory).
+- Alerts are evaluated by the service, so they only work while it is running. If Docker restarts, the watcher reconnects by itself.
+- Telegram and webhook calls time out after 8 seconds; a failing channel never blocks the others.
+
+
+## 11. Keyboard shortcuts
 
 Press `?` anytime. They are ignored while you type in a field or a window is open.
 
 | Key | Action |
 |---|---|
-| `1` – `6` | Switch section |
+| `1` – `7` | Switch section |
 | `/` | Go to search |
 | `n` | New container |
 | `r` | Refresh data |
@@ -228,12 +280,12 @@ Press `?` anytime. They are ignored while you type in a field or a window is ope
 
 The UI is fully keyboard-navigable and respects the system “reduce motion” preference.
 
-## 11. Theme and language
+## 12. Theme and language
 
 - **Theme**: follows your system by default; switch with ☀/🌙 in the sidebar (on mobile, the floating button bottom left). Remembered in the browser.
 - **Language**: English or Spanish. The first visit uses your browser language; switch with the **ES / EN** button next to the theme. Remembered in the browser.
 
-## 12. Usage history and stored data
+## 13. Usage history and stored data
 
 - Every **15 seconds** CPU and memory of running containers are recorded in a SQLite database.
 - Kept for **7 days**; old samples are pruned once an hour.
@@ -244,7 +296,7 @@ The UI is fully keyboard-navigable and respects the system “reduce motion” p
 
 It is a standard SQLite file with a table `samples(ts, name, cpu, mem)` (`ts` in milliseconds), easy to query or back up.
 
-## 13. Configuration
+## 14. Configuration
 
 Optional environment variables:
 
@@ -253,6 +305,7 @@ Optional environment variables:
 | `DOCKER_SOCKET` / `DOCKER_HOST` | auto-detected | Docker socket, named pipe or `tcp://` endpoint (see [PLATFORMS.md](PLATFORMS.md)) |
 | `PORT` | `4455` | Port (the allowed-hosts list follows it) |
 | `DATA_DIR` | per OS | Where the history is stored |
+| `ALERT_HOST` | hostname | Label that prefixes alert messages |
 | `SAMPLE_SECONDS` | `15` | Sampling interval |
 | `RETENTION_DAYS` | `7` | Days of history |
 
@@ -270,7 +323,7 @@ Environment=RETENTION_DAYS=14
 
 Then `systemctl --user restart docker-gestor`. The bind address `127.0.0.1` is fixed on purpose.
 
-## 14. Resource usage
+## 15. Resource usage
 
 - **No constant polling**: the UI refreshes when Docker emits an event; there is a 60 s fallback refresh.
 - **Only what is needed**: each section requests only its own data; live stats only on *Containers*; nothing is requested while the browser tab is hidden.
@@ -280,7 +333,7 @@ Then `systemctl --user restart docker-gestor`. The bind address `127.0.0.1` is f
 
 Measured with 12 containers and one open tab: **≈ 0.2–0.5 % of a core** and **≈ 55 MB** (cgroup memory). Check yourself with `systemctl --user status docker-gestor` or `systemd-cgtop`.
 
-## 15. Security
+## 16. Security
 
 Controlling Docker is equivalent to having admin rights on the machine. Therefore:
 
@@ -289,11 +342,12 @@ Controlling Docker is equivalent to having admin rights on the machine. Therefor
 - Ports of containers created from the panel are published on `127.0.0.1` only.
 - Names, ports, variables, volumes and images are validated server-side.
 - Compose only acts on stacks Docker already knows.
+- Alerts make outbound requests only to the Telegram API and to the webhook URL you configure; their secrets live in a `600` file and are never returned to the browser.
 - **There is no authentication**: any process or user able to reach `localhost:<port>` on your machine can use the panel.
 
 **Do not expose it to the internet or your network** (tunnels, reverse proxies, `0.0.0.0`) without adding authentication first. The terminal gives root inside the container, and a host-path volume gives access to your files.
 
-## 16. Troubleshooting
+## 17. Troubleshooting
 
 | Symptom | Likely cause and fix |
 |---|---|
@@ -307,10 +361,12 @@ Controlling Docker is equivalent to having admin rights on the machine. Therefor
 | Terminal closes at once / errors | The image has no shell, or the container is not running |
 | “Host not allowed” (403) | You use another name or port (LAN IP, proxy…). Use `http://localhost:4455` |
 | Deleting an image / volume / network fails | In use by a container; Docker's message says so |
+| No Telegram / webhook alerts | Open **Alerts** and use *Send test*: the section shows the last error of each channel. Check the token, chat ID and that you sent your bot a message first |
+| An alert fires for something I did | Only stops/restarts/removals are recognised as intentional; a `docker kill` is treated as a crash |
 | Does not start at boot | Missing linger: `sudo loginctl enable-linger $USER` |
 | Service restarts itself | May have hit the 256 MB memory limit: check `journalctl --user -u docker-gestor` |
 
-## 17. Uninstall
+## 18. Uninstall
 
 ```bash
 systemctl --user disable --now docker-gestor
@@ -323,7 +379,7 @@ rm -rf ~/.local/share/docker-gestor
 
 This does not touch your containers, images, volumes or networks.
 
-## 18. For developers
+## 19. For developers
 
 ### Layout
 
@@ -336,6 +392,8 @@ src/instrumentation.ts        Starts usage sampling
 src/lib/docker.ts             Docker client, Host/Origin guard, helpers
 src/lib/socket.mjs            Docker endpoint detection (Linux / macOS / Windows)
 src/lib/history.ts            Sampling and SQLite queries
+src/lib/alerts-core.mjs       Alert rules and config validation (pure, unit-tested)
+src/lib/alerts.ts             Alert I/O: Docker watcher, Telegram, webhook, storage
 src/app/page.tsx              The UI (sections)
 src/app/ui.tsx                Shared components: buttons, modal, toasts, confirmations, icons
 src/app/i18n.ts + locales/    Translations (one file per language)
@@ -353,6 +411,10 @@ src/app/api/**                REST API and SSE streams
 | `/stats` | GET | CPU/RAM of running containers |
 | `/history?name=&range=` | GET | History series (`1h`, `24h`, `7d`) |
 | `/events` | GET (SSE) | Docker events |
+| `/alerts/config` | GET, PUT | Alert settings (secrets are never returned) |
+| `/alerts/test` | POST | Send a test through `telegram` or `webhook` |
+| `/alerts/history` | GET | Recent alerts |
+| `/alerts/stream` | GET (SSE) | New alerts for the browser channel |
 | `/compose` | GET, POST | List stacks / `up`, `down`, `restart`, `stop`, `pull` |
 | `/images` | GET, POST, DELETE | List / pull / delete |
 | `/volumes` | GET, DELETE | List / delete |
@@ -366,7 +428,7 @@ Connection errors answer `503` with a `code` (`docker_unreachable`, `docker_deni
 ```bash
 systemctl --user stop docker-gestor     # frees port 4455
 npm run dev                             # hot reload
-npm run typecheck && npm test && npm run smoke
+npm run typecheck && npm test && npm run smoke && npm run e2e:alerts
 ```
 
 No Docker at hand? Run the fake API: `node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &` then `DOCKER_SOCKET=/tmp/docker-mock.sock npm run dev`.

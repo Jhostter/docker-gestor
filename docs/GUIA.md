@@ -13,15 +13,16 @@ Panel web local para gestionar Docker desde el navegador: contenedores, logs, te
 7. [Volúmenes](#7-volúmenes)
 8. [Redes](#8-redes)
 9. [Eventos](#9-eventos)
-10. [Atajos de teclado](#10-atajos-de-teclado)
-11. [Tema e idioma](#11-tema-e-idioma)
-12. [Historial de consumo y datos guardados](#12-historial-de-consumo-y-datos-guardados)
-13. [Configuración](#13-configuración)
-14. [Consumo de recursos](#14-consumo-de-recursos)
-15. [Seguridad](#15-seguridad)
-16. [Solución de problemas](#16-solución-de-problemas)
-17. [Desinstalar](#17-desinstalar)
-18. [Para desarrolladores](#18-para-desarrolladores)
+10. [Alertas](#10-alertas)
+11. [Atajos de teclado](#11-atajos-de-teclado)
+12. [Tema e idioma](#12-tema-e-idioma)
+13. [Historial de consumo y datos guardados](#13-historial-de-consumo-y-datos-guardados)
+14. [Configuración](#14-configuración)
+15. [Consumo de recursos](#15-consumo-de-recursos)
+16. [Seguridad](#16-seguridad)
+17. [Solución de problemas](#17-solución-de-problemas)
+18. [Desinstalar](#18-desinstalar)
+19. [Para desarrolladores](#19-para-desarrolladores)
 
 ---
 
@@ -82,7 +83,7 @@ sudo loginctl enable-linger $USER       # si dice Linger=no
 
 ## 3. Recorrido por la interfaz
 
-- **Barra lateral** (arriba en móvil): las seis secciones. En la parte inferior verás el estado de la conexión (🟢 *Docker conectado*), el cambio de tema, el selector de idioma y la ayuda.
+- **Barra lateral** (arriba en móvil): las siete secciones. En la parte inferior verás el estado de la conexión (🟢 *Docker conectado*), el cambio de tema, el selector de idioma y la ayuda.
 - **Zona principal**: el contenido de la sección activa.
 - **Avisos**: aparecen abajo a la derecha. Los de éxito desaparecen solos; los de error permanecen unos segundos más y puedes cerrarlos con ✕.
 - **Confirmaciones**: toda acción destructiva (eliminar, bajar un stack…) pide confirmación explícita y te explica qué ocurrirá.
@@ -219,13 +220,64 @@ Flujo en vivo de lo que ocurre en Docker: creación, arranque, parada, destrucci
 
 Estos eventos también son lo que mantiene la interfaz actualizada sin necesidad de consultar a Docker cada pocos segundos.
 
-## 10. Atajos de teclado
+## 10. Alertas
+
+Las alertas te avisan cuando algo va mal, para que no tengas que dejar la página abierta. Vienen **desactivadas**: no se ejecuta nada hasta que las actives en la sección **Alertas**.
+
+### Qué vigila
+
+| Regla | Salta cuando |
+|---|---|
+| **Un contenedor se cae** | Termina con un código distinto de 0 **sin que lo hayas detenido tú** |
+| **Sin memoria (OOM)** | El sistema lo detiene por falta de memoria |
+| **No saludable** | Falla su comprobación de salud (y llega un aviso de «vuelve a estar saludable» al recuperarse) |
+| **Reinicios en bucle** | Se cae N veces en M minutos (por defecto 3 en 10) |
+| **CPU alta** *(desactivada por defecto)* | Se mantiene por encima de X % durante M minutos (por defecto 90 % durante 5) |
+| **Memoria alta** *(desactivada por defecto)* | Se mantiene por encima de X % de su límite de memoria durante M minutos (por defecto 90 % durante 2). Sin límite, el porcentaje es sobre la RAM del equipo |
+
+**Sin ruido:** un `stop`, `restart` o eliminación que hagas tú (desde esta interfaz o desde la línea de comandos) se reconoce y se ignora. La misma alerta para el mismo contenedor no se repite durante el tiempo de **espera** (10 minutos por defecto; 0 lo desactiva).
+
+### Canales
+
+- **Notificaciones del navegador** — siempre aparece un aviso en la página abierta, y una notificación del sistema si la pestaña está en segundo plano. Concede el permiso con el botón de la sección. Solo funciona con una pestaña de Docker Gestor abierta.
+- **Telegram** — funciona con la pestaña cerrada. Crea un bot con [@BotFather](https://t.me/BotFather), escríbele cualquier mensaje y pon su **token** y tu **ID de chat** (un número, o `@tucanal`).
+- **Webhook** — funciona con la pestaña cerrada. Docker Gestor envía un `POST` a tu URL, con una cabecera `Authorization` opcional. El formato **JSON** sirve tal cual para webhooks de Discord y Slack (incluye `text` y `content`); el **texto plano** encaja con ntfy y servicios parecidos.
+
+```json
+{
+  "text": "[mipc] 🔴 shop-api terminó con código 1",
+  "content": "[mipc] 🔴 shop-api terminó con código 1",
+  "event": "died",
+  "container": "shop-api",
+  "host": "mipc",
+  "timestamp": "2026-11-10T15:04:05.000Z",
+  "vars": { "code": "1" }
+}
+```
+
+`event` es uno de `died`, `oom`, `unhealthy`, `recovered`, `restartLoop`, `cpu`, `memory`, `test`. Usa **Enviar prueba** (tras guardar) para comprobar un canal; la sección muestra el último error o el último envío correcto de cada uno.
+
+Los mensajes usan el idioma elegido en la interfaz y empiezan por el nombre del equipo, para distinguir varios ordenadores. Cambia esa etiqueta con `ALERT_HOST`.
+
+### Dónde se guarda
+
+- La configuración, incluidos el token de Telegram y el `Authorization` del webhook, está en `alerts.json` dentro de la carpeta de datos, legible solo por tu usuario (permisos `600`). Nunca se devuelve al navegador.
+- El **historial** de alertas (30 días) está en la misma base SQLite que el historial de consumo.
+
+### Coste y límites
+
+- Con las alertas **apagadas** no hay trabajo extra. Con las alertas **encendidas** el servicio mantiene una conexión inactiva con los eventos de Docker y revisa las muestras de consumo que ya toma (medido: sin diferencia visible en CPU ni memoria).
+- Las alertas las evalúa el servicio, así que solo funcionan mientras esté en marcha. Si Docker se reinicia, la vigilancia se reconecta sola.
+- Las llamadas a Telegram y al webhook caducan a los 8 segundos; un canal que falle nunca bloquea a los demás.
+
+
+## 11. Atajos de teclado
 
 Pulsa `?` en cualquier momento para verlos. No actúan mientras escribes en un campo ni con una ventana abierta.
 
 | Tecla | Acción |
 |---|---|
-| `1` – `6` | Cambiar de sección |
+| `1` – `7` | Cambiar de sección |
 | `/` | Ir al buscador |
 | `n` | Nuevo contenedor |
 | `r` | Refrescar datos |
@@ -234,14 +286,14 @@ Pulsa `?` en cualquier momento para verlos. No actúan mientras escribes en un c
 
 La interfaz es totalmente navegable con teclado (`Tab`/`Shift+Tab`, `Enter`) y respeta la preferencia del sistema de «reducir animaciones».
 
-## 11. Tema e idioma
+## 12. Tema e idioma
 
 - **Tema**: por defecto sigue el de tu sistema. Cambia con el icono ☀/🌙 de la barra lateral (en móvil, el botón flotante abajo a la izquierda); se recuerda en el navegador.
 - **Idioma**: español o inglés. La primera vez se usa el idioma del navegador; cambia con el botón **ES / EN** junto al tema. También se recuerda.
 
 > Versión en inglés de esta guía: [GUIDE.md](GUIDE.md).
 
-## 12. Historial de consumo y datos guardados
+## 13. Historial de consumo y datos guardados
 
 - Cada **15 segundos** se registra CPU y memoria de los contenedores en marcha en una base SQLite.
 - Se conservan **7 días**; una vez por hora se borran las muestras más antiguas.
@@ -253,7 +305,7 @@ La interfaz es totalmente navegable con teclado (`Tab`/`Shift+Tab`, `Enter`) y r
 
 Para consultar o respaldar los datos: es un archivo SQLite estándar con la tabla `samples(ts, name, cpu, mem)` (`ts` en milisegundos).
 
-## 13. Configuración
+## 14. Configuración
 
 Variables de entorno (todas opcionales):
 
@@ -262,6 +314,7 @@ Variables de entorno (todas opcionales):
 | `DOCKER_SOCKET` / `DOCKER_HOST` | autodetectado | Socket, tubería o `tcp://` de Docker (ver [PLATFORMS](PLATFORMS.md)) |
 | `PORT` | `4455` | Puerto (siempre en `127.0.0.1`) |
 | `DATA_DIR` | según el sistema (Linux: `~/.local/share/docker-gestor`) | Dónde se guarda el historial |
+| `ALERT_HOST` | nombre del equipo | Etiqueta que encabeza los mensajes de alerta |
 | `SAMPLE_SECONDS` | `15` | Intervalo de muestreo |
 | `RETENTION_DAYS` | `7` | Días de historial |
 
@@ -287,7 +340,7 @@ Para cambiar el puerto basta con `PORT` (la lista de hosts permitidos lo sigue a
 
 **macOS y Windows:** ver [PLATFORMS.md](PLATFORMS.md) para la compatibilidad (probado a diario solo en Linux), la detección de Docker y cómo dejarlo en marcha.
 
-## 14. Consumo de recursos
+## 15. Consumo de recursos
 
 El diseño prioriza no molestar a tu máquina:
 
@@ -311,7 +364,7 @@ systemctl --user status docker-gestor      # muestra Memory y CPU
 systemd-cgtop                              # vista en vivo
 ```
 
-## 15. Seguridad
+## 16. Seguridad
 
 Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso:
 
@@ -320,11 +373,12 @@ Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso
 - Los puertos de los contenedores creados desde el panel se publican solo en `127.0.0.1`.
 - Todas las entradas (nombres, puertos, variables, volúmenes, imágenes) se validan en el servidor.
 - Compose solo actúa sobre stacks que Docker ya conoce.
+- Las alertas solo hacen peticiones salientes a la API de Telegram y a la URL de webhook que configures; sus secretos viven en un archivo `600` y nunca se devuelven al navegador.
 - **No hay autenticación**: cualquier proceso o usuario con acceso a `localhost:4455` en tu máquina puede usar el panel.
 
 **No expongas este panel a internet ni a tu red** (túneles, proxys inversos, `0.0.0.0`) sin antes añadir autenticación. La terminal da acceso de administrador dentro del contenedor, y un volumen con ruta del equipo da acceso a tus archivos.
 
-## 16. Solución de problemas
+## 17. Solución de problemas
 
 | Síntoma | Causa probable y solución |
 |---|---|
@@ -338,10 +392,12 @@ Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso
 | Terminal: se cierra enseguida o error | La imagen no tiene shell, o el contenedor no está en marcha |
 | «Host no permitido» (403) | Accedes con otro nombre o puerto (IP de la red, proxy…). Usa `http://localhost:4455` |
 | Eliminar imagen/volumen/red falla | Está en uso por algún contenedor. El mensaje de Docker lo indica |
+| No llegan alertas por Telegram / webhook | Abre **Alertas** y usa *Enviar prueba*: la sección muestra el último error de cada canal. Revisa el token, el ID de chat y que hayas escrito antes a tu bot |
+| Salta una alerta por algo que hice yo | Solo se reconocen como intencionados los stop, restart y eliminaciones; un `docker kill` cuenta como caída |
 | No arranca al encender el equipo | Falta el *linger*: `sudo loginctl enable-linger $USER` |
 | El servicio se reinicia solo | Puede haber llegado al límite de memoria (256 MB): mira `journalctl --user -u docker-gestor` |
 
-## 17. Desinstalar
+## 18. Desinstalar
 
 ```bash
 systemctl --user disable --now docker-gestor
@@ -354,7 +410,7 @@ rm -rf ~/.local/share/docker-gestor
 
 Esto no toca tus contenedores, imágenes, volúmenes ni redes.
 
-## 18. Para desarrolladores
+## 19. Para desarrolladores
 
 ### Estructura
 
@@ -364,6 +420,8 @@ scripts/install-service.sh    Instalador del servicio systemd
 src/instrumentation.ts        Arranca el muestreo de consumo
 src/lib/docker.ts             Cliente de Docker, validación de Host/Origin, utilidades
 src/lib/history.ts            Muestreo y consultas SQLite
+src/lib/alerts-core.mjs       Reglas de alertas y validación (puro, con pruebas)
+src/lib/alerts.ts             E/S de alertas: vigilancia de Docker, Telegram, webhook, almacenamiento
 src/app/page.tsx              Interfaz (secciones)
 src/app/ui.tsx                Componentes comunes: botones, modal, avisos, confirmaciones, iconos
 src/app/i18n.ts + locales/    Traducciones (un archivo por idioma)
@@ -382,6 +440,10 @@ src/app/api/**                API REST y flujos SSE
 | `/stats` | GET | CPU/RAM de los contenedores en marcha |
 | `/history?name=&range=` | GET | Serie del historial (`1h`, `24h`, `7d`) |
 | `/events` | GET (SSE) | Eventos de Docker |
+| `/alerts/config` | GET, PUT | Configuración de alertas (los secretos nunca se devuelven) |
+| `/alerts/test` | POST | Envía una prueba por `telegram` o `webhook` |
+| `/alerts/history` | GET | Alertas recientes |
+| `/alerts/stream` | GET (SSE) | Alertas nuevas para el canal del navegador |
 | `/compose` | GET, POST | Listar stacks / `up`, `down`, `restart`, `stop`, `pull` |
 | `/images` | GET, POST, DELETE | Listar / descargar / eliminar |
 | `/volumes` | GET, DELETE | Listar / eliminar |
