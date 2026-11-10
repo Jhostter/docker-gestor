@@ -11,3 +11,4 @@ export function validateGroupName(name: unknown): string;
 export type GroupOp = { kind: "assign"; names: string[]; group: string | null } | { kind: "rename"; from: string; to: string } | { kind: "dissolve"; group: string };
 export function validateGroupOp(body: unknown): GroupOp;
 export function canonicalGroup(name: string, existing: Iterable<string>): string;
+export function planMove(assignments: Record<string, string>, names: string[], group: string | null): { next: Record<string, string>; moved: string[]; group: string | null };

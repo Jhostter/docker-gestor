@@ -85,3 +85,18 @@ export function canonicalGroup(name, existing) {
   const hit = [...existing].find((g) => g.toLowerCase() === name.toLowerCase());
   return hit ?? name;
 }
+
+/**
+ * What moving `names` into `group` (or out of every group, with null) does to the assignments, with no I/O.
+ * Used for the instant on-screen update while drag and drop talks to the server.
+ * @returns { next: new assignments, moved: names that actually change, group: the spelling that will be used }
+ */
+export function planMove(assignments, names, group) {
+  const target = group === null ? null : canonicalGroup(String(group).trim(), new Set(Object.values(assignments)));
+  const next = { ...assignments }, moved = [];
+  for (const n of new Set(names)) {
+    if (target === null) { if (n in next) { delete next[n]; moved.push(n); } }
+    else if (next[n] !== target) { next[n] = target; moved.push(n); }
+  }
+  return { next, moved, group: target };
+}

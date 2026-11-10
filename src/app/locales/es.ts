@@ -121,4 +121,8 @@ export const es = {
   grp_rename: "Renombrar", grp_rename_title: "Renombrar «{name}»", grp_dissolve: "Disolver", grp_dissolve_title: "Disolver «{name}»", grp_dissolve_body: "Los contenedores no se tocan: solo dejan de pertenecer al grupo.",
   grp_saved: "Grupos actualizados", grp_custom_empty: "Aún no tienes grupos: selecciona contenedores y usa «Mover a grupo…».",
   err_invalid_group: "El nombre del grupo no es válido (de 1 a 40 caracteres).", err_too_many_groups: "Hay demasiados grupos (máximo 50).", err_no_such_group: "Ese grupo no existe.", err_invalid_group_op: "La operación sobre el grupo no es válida.",
+  // Arrastrar y soltar
+  dnd_handle: "Arrastra para mover a otro grupo", dnd_new_zone: "Suelta aquí para crear un grupo nuevo", dnd_remove_zone: "Suelta aquí para sacarlos de su grupo", dnd_new_title: "Nuevo grupo",
+  dnd_moved: "{n} contenedor movido a «{group}»|{n} contenedores movidos a «{group}»", dnd_removed: "{n} contenedor sacado de su grupo|{n} contenedores sacados de su grupo",
+  dnd_hint: "Arrastra el asa ⠿ de una fila a otro grupo (o usa «Mover a grupo…»).",
 } as const;

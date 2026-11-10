@@ -37,7 +37,8 @@
     "e2e:disk": "node scripts/e2e-disk.mjs",
     "e2e:detail": "node scripts/e2e-detail.mjs",
     "e2e:groups": "node scripts/e2e-groups.mjs",
-    "e2e:custom-groups": "node scripts/e2e-custom-groups.mjs"
+    "e2e:custom-groups": "node scripts/e2e-custom-groups.mjs",
+    "e2e:dnd": "node scripts/e2e-dnd.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

@@ -123,4 +123,8 @@ export const en: Record<keyof typeof es, string> = {
   grp_rename: "Rename", grp_rename_title: "Rename “{name}”", grp_dissolve: "Dissolve", grp_dissolve_title: "Dissolve “{name}”", grp_dissolve_body: "The containers are left alone: they just stop belonging to the group.",
   grp_saved: "Groups updated", grp_custom_empty: "No groups yet: select containers and use “Move to group…”.",
   err_invalid_group: "The group name is not valid (1 to 40 characters).", err_too_many_groups: "Too many groups (maximum 50).", err_no_such_group: "That group does not exist.", err_invalid_group_op: "The group operation is not valid.",
+  // Drag and drop
+  dnd_handle: "Drag to move to another group", dnd_new_zone: "Drop here to create a new group", dnd_remove_zone: "Drop here to take them out of their group", dnd_new_title: "New group",
+  dnd_moved: "{n} container moved to “{group}”|{n} containers moved to “{group}”", dnd_removed: "{n} container taken out of its group|{n} containers taken out of their groups",
+  dnd_hint: "Drag a row's ⠿ handle to another group (or use “Move to group…”).",
 };

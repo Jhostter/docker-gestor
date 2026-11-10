@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { planLayers, parseDependsOn, validateBatch, BatchError, MAX_IDS, validateGroupName, validateGroupOp, canonicalGroup, MAX_GROUP_NAME } from "../src/lib/groups-core.mjs";
+import { planLayers, parseDependsOn, validateBatch, BatchError, MAX_IDS, validateGroupName, validateGroupOp, canonicalGroup, MAX_GROUP_NAME, planMove } from "../src/lib/groups-core.mjs";
 
 const c = (id, service, dependsOn) => ({ id, labels: service ? { "com.docker.compose.service": service, ...(dependsOn ? { "com.docker.compose.depends_on": dependsOn } : {}) } : {} });
 // web -> api -> (db, cache);  worker -> (db, cache)
@@ -115,4 +115,36 @@ test("canonicalGroup: groups are case-insensitive and keep the existing spelling
   assert.equal(canonicalGroup("frontend", ["Frontend", "Data"]), "Frontend");
   assert.equal(canonicalGroup("DATA", new Set(["Frontend", "Data"])), "Data");
   assert.equal(canonicalGroup("New", ["Frontend"]), "New");
+});
+
+test("planMove: moves containers into a group and reports only what changed", () => {
+  const a = { web: "Frontend", api: "Backend" };
+  const r = planMove(a, ["web", "api", "db"], "Backend");
+  assert.deepEqual(r.next, { web: "Backend", api: "Backend", db: "Backend" });
+  assert.deepEqual(r.moved.sort(), ["db", "web"], "api was already there");
+  assert.equal(r.group, "Backend");
+  assert.deepEqual(a, { web: "Frontend", api: "Backend" }, "the input is not modified");
+});
+
+test("planMove: dropping onto the group a container is already in is a no-op", () => {
+  const r = planMove({ web: "Frontend" }, ["web"], "Frontend");
+  assert.deepEqual(r.moved, []); assert.deepEqual(r.next, { web: "Frontend" });
+});
+
+test("planMove: null takes containers out of their groups (ungrouped); unknown ones are ignored", () => {
+  const r = planMove({ web: "Frontend", api: "Backend" }, ["web", "ghost"], null);
+  assert.deepEqual(r.next, { api: "Backend" }); assert.deepEqual(r.moved, ["web"]); assert.equal(r.group, null);
+  assert.deepEqual(planMove({}, ["a"], null).moved, []);
+});
+
+test("planMove keeps the existing spelling of a group (case-insensitive) and trims", () => {
+  assert.equal(planMove({ web: "Frontend" }, ["api"], "  frontend ").group, "Frontend");
+  assert.equal(planMove({ web: "Frontend" }, ["api"], "New").group, "New");
+});
+
+test("planMove de-duplicates names and handles many", () => {
+  const r = planMove({}, ["a", "a", "b"], "G");
+  assert.deepEqual(r.moved, ["a", "b"]);
+  const many = Array.from({ length: 200 }, (_, i) => "c" + i);
+  assert.equal(planMove({}, many, "G").moved.length, 200);
 });

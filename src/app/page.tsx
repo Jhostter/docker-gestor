@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, post, bytes, ago } from "./format";
 import { useT, setLang, type Key } from "./i18n";
+import { planMove } from "../lib/groups-core.mjs";
 import { Badge, Btn, Card, Chips, Empty, Icon, Meter, Modal, SearchBox, Spinner, UIProvider, useUI } from "./ui";
 
 type Container = { id: string; name: string; image: string; state: string; status: string; ports: string[]; project: string | null };
@@ -211,7 +212,7 @@ function App() {
 
       <main className="min-w-0 flex-1 p-4 pb-20 md:p-6">
         {online === false && <div role="alert" className="mb-4 rounded-lg border border-bad/40 bg-bad/10 p-3 text-sm text-bad">{t("lost_banner")} <code>systemctl --user status docker-gestor</code>.</div>}
-        {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail, running, assignments, customGroups, reloadGroups }} />}
+        {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail, running, assignments, setAssignments, customGroups, reloadGroups }} />}
         {tab === "compose" && <ComposeView {...{ stacks, busy, run, confirm, setOutput, goTo: (name: string) => { setTab("containers"); setTimeout(() => setSearch(name), 0); } }} />}
         {tab === "images" && <ImagesView {...{ images, containers, busy, run, confirm, search, setSearch, searchRef }} />}
         {tab === "volumes" && <VolumesView {...{ volumes, busy, run, confirm, search, setSearch, searchRef }} />}
@@ -241,18 +242,20 @@ type BatchAction = "start" | "stop" | "restart" | "remove";
 type CV = {
   containers: Container[] | null; stats: Record<string, Stat>; busy: Set<string>; search: string; setSearch: (s: string) => void; searchRef: React.Ref<HTMLInputElement>; running: number;
   ctl: (c: Container, a: "start" | "stop" | "restart") => void; del: (c: Container) => void; openCreate: () => void; batch: (a: BatchAction, cs: Container[], key: string) => Promise<boolean>;
-  assignments: Record<string, string>; customGroups: { name: string; count: number }[]; reloadGroups: () => Promise<void>;
+  assignments: Record<string, string>; setAssignments: (a: Record<string, string>) => void; customGroups: { name: string; count: number }[]; reloadGroups: () => Promise<void>;
   setLogs: (c: Container) => void; setTerm: (c: Container) => void; setChart: (c: Container) => void; setDetail: (c: Container) => void;
 };
 const loadCollapsed = (): Set<string> => { try { return new Set(JSON.parse(localStorage.getItem("collapsedGroups") ?? "[]")); } catch { return new Set(); } };
 
-function ContainersView({ containers, stats, busy, search, setSearch, searchRef, running, ctl, del, openCreate, batch, assignments, customGroups, reloadGroups, setLogs, setTerm, setChart, setDetail }: CV) {
+function ContainersView({ containers, stats, busy, search, setSearch, searchRef, running, ctl, del, openCreate, batch, assignments, setAssignments, customGroups, reloadGroups, setLogs, setTerm, setChart, setDetail }: CV) {
   const { t } = useT();
   const { toast, confirm, prompt } = useUI();
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
   const [mode, setModeState] = useState<"stack" | "custom" | "none">("stack");
   const [moving, setMoving] = useState(false);
   const group = mode !== "none";
+  const [drag, setDrag] = useState<string[] | null>(null); // container names being dragged
+  const [over, setOver] = useState<string | null>(null);   // group key under the pointer
   const setMode = (m: "stack" | "custom" | "none") => { setModeState(m); try { localStorage.setItem("groupMode", m); } catch {} };
   useEffect(() => { try { const m = localStorage.getItem("groupMode"); if (m === "stack" || m === "custom" || m === "none") setModeState(m); } catch {} }, []);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -278,6 +281,34 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
   const toggleCollapsed = (k: string) => setCollapsed((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); try { localStorage.setItem("collapsedGroups", JSON.stringify([...n])); } catch {} return n; });
   const act = async (a: BatchAction, cs: Container[], key: string) => { if (await batch(a, cs, key)) setSelected(new Set()); };
 
+  /** Drag and drop: update the screen at once, tell the server, and roll back if it refuses. */
+  const moveTo = async (names: string[], to: string | null) => {
+    const plan = planMove(assignments, names, to);
+    if (!plan.moved.length) return;
+    const prev = assignments; setAssignments(plan.next);
+    try {
+      await api("/api/groups", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ names: plan.moved, group: plan.group }) });
+      await reloadGroups();
+      toast("ok", plan.group === null ? t("dnd_removed", { n: plan.moved.length }) : t("dnd_moved", { n: plan.moved.length, group: plan.group }));
+    } catch (e) { setAssignments(prev); toast("error", (e as Error).message); }
+  };
+  const endDrag = () => { setDrag(null); setOver(null); };
+  const dragHandle = (c: Container) => ({
+    onStart: (e: React.DragEvent) => {
+      const names = selected.has(c.id) ? picked.map((x) => x.name) : [c.name]; // dragging a selected row drags the whole selection
+      e.dataTransfer.setData("text/plain", names.join("\n")); e.dataTransfer.effectAllowed = "move";
+      const row = (e.currentTarget as HTMLElement).closest("div.grid"); if (row) e.dataTransfer.setDragImage(row, 24, 24);
+      setDrag(names);
+    },
+    onEnd: endDrag,
+  });
+  const zone = (key: string, to: () => Promise<string | null | undefined> | string | null | undefined) => drag ? {
+    onDragEnter: (e: React.DragEvent) => { e.preventDefault(); setOver(key); },
+    onDragOver: (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (over !== key) setOver(key); },
+    onDrop: async (e: React.DragEvent) => { e.preventDefault(); const names = drag; endDrag(); const target = await to(); if (target !== undefined) moveTo(names, target); },
+  } : {};
+  const ring = (key: string) => (drag && over === key ? "rounded-xl ring-2 ring-accent bg-accent/5" : "");
+
   return (
     <section aria-label={t("tab_containers")} className="space-y-4 pb-14">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -289,6 +320,7 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
         <input type="checkbox" aria-label={t("grp_select_all")} title={t("grp_select_all")} checked={list.length > 0 && list.every((c) => selected.has(c.id))} onChange={(e) => setMany(list, e.target.checked)} ref={(el) => { if (el) el.indeterminate = list.some((c) => selected.has(c.id)) && !list.every((c) => selected.has(c.id)); }} />
         <SearchBox value={search} onChange={setSearch} placeholder={t("search")} inputRef={searchRef} />
         <Chips value={filter} onChange={setFilter} options={[{ id: "all", label: t("f_all"), count: all.length }, { id: "up", label: t("f_up"), count: running }, { id: "down", label: t("f_down"), count: all.length - running }]} />
+        {mode === "custom" && customGroups.length > 0 && <span className="hidden text-xs text-muted xl:inline">{t("dnd_hint")}</span>}
         <div className="flex items-center gap-1.5 text-xs text-muted"><span>{t("group_by")}</span><Chips value={mode} onChange={setMode} options={[{ id: "stack", label: t("grp_m_stack") }, { id: "custom", label: t("grp_m_custom") }, { id: "none", label: t("grp_m_none") }]} /></div>
         <div className="ml-auto"><Btn kind="primary" icon="plus" onClick={openCreate}>{t("new_container")}</Btn></div>
       </div>
@@ -299,7 +331,7 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
           const up = items.filter((c) => c.state === "running"), key = (mode === "custom" ? "c:" : "s:") + (name || "\u0000"), folded = group && collapsed.has(key), all_ = items.every((c) => selected.has(c.id)), some = items.some((c) => selected.has(c.id));
           const label = name || (mode === "custom" ? t("grp_ungrouped") : t("no_stack")), gcpu = items.reduce((a, c) => a + (stats[c.id]?.cpu ?? 0), 0), gmem = items.reduce((a, c) => a + (stats[c.id]?.mem ?? 0), 0), gb = busy.has(`group:${key}`);
           return (
-            <div key={name}>
+            <div key={name} className={ring(name || "")} {...(mode === "custom" ? zone(name || "", () => name || null) : {})}>
               {group && (
                 <div className="mb-1.5 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <input type="checkbox" aria-label={`${t("grp_select")}: ${label}`} checked={all_} onChange={(e) => setMany(items, e.target.checked)} ref={(el) => { if (el) el.indeterminate = some && !all_; }} />
@@ -325,13 +357,19 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
               )}
               {!folded && (
                 <Card className="divide-y divide-line overflow-hidden">
-                  {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], busy: busy.has(c.id), checked: selected.has(c.id), toggle: () => toggle(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} />)}
+                  {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], busy: busy.has(c.id), checked: selected.has(c.id), toggle: () => toggle(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} handle={mode === "custom" ? dragHandle(c) : undefined} dragging={!!drag && drag.includes(c.name)} />)}
                 </Card>
               )}
             </div>
           );
         })}
 
+      {mode === "custom" && drag && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div {...zone("__remove__", () => null)} className={`rounded-xl border-2 border-dashed px-4 py-6 text-center text-sm ${over === "__remove__" ? "border-accent bg-accent/10 text-fg" : "border-line text-muted"}`}>{t("dnd_remove_zone")}</div>
+          <div {...zone("__new__", async () => (await prompt({ title: t("dnd_new_title"), label: t("grp_name"), confirm: t("grp_move_btn") })) ?? undefined)} className={`rounded-xl border-2 border-dashed px-4 py-6 text-center text-sm ${over === "__new__" ? "border-accent bg-accent/10 text-fg" : "border-line text-muted"}`}>{t("dnd_new_zone")}</div>
+        </div>
+      )}
       {picked.length > 0 && (
         <div className="sticky bottom-3 z-10 flex justify-end">
           <div className="flex flex-wrap items-center gap-2 rounded-lg bg-surface p-2 pl-4 shadow-lg ring-1 ring-line">
@@ -379,13 +417,16 @@ function MoveDialog({ names, groups, current, onClose, onDone }: { names: string
   );
 }
 
-function Row({ c, s, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart, setDetail }: { c: Container; s?: Stat; busy: boolean; checked: boolean; toggle: () => void; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
+function Row({ c, s, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart, setDetail, handle, dragging }: { handle?: { onStart: (e: React.DragEvent) => void; onEnd: () => void }; dragging?: boolean; c: Container; s?: Stat; busy: boolean; checked: boolean; toggle: () => void; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
   const { t } = useT();
   const up = c.state === "running";
   const tone = up ? (/unhealthy/.test(c.status) ? "bad" : /starting/.test(c.status) ? "warn" : "ok") : c.state === "exited" || c.state === "created" ? "muted" : "warn";
   return (
-    <div className="grid items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[1.25rem_minmax(0,2.2fr)_minmax(0,1.4fr)_7rem_7rem_auto]">
-      <input type="checkbox" checked={checked} onChange={toggle} aria-label={t("grp_row_select", { name: c.name })} />
+    <div className={`grid items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[1.25rem_minmax(0,2.2fr)_minmax(0,1.4fr)_7rem_7rem_auto] ${dragging ? "opacity-40" : ""}`}>
+      <div className="flex flex-col items-center gap-1.5">
+        <input type="checkbox" checked={checked} onChange={toggle} aria-label={t("grp_row_select", { name: c.name })} />
+        {handle && <span draggable onDragStart={handle.onStart} onDragEnd={handle.onEnd} title={t("dnd_handle")} aria-label={t("dnd_handle")} data-drag-handle={c.name} className="-my-0.5 cursor-grab select-none rounded p-0.5 text-muted hover:bg-surface2 hover:text-fg active:cursor-grabbing"><Icon name="grip" className="size-5" /></span>}
+      </div>
       <div className="min-w-0">
         <button onClick={() => setDetail(c)} className="block max-w-full truncate text-left font-medium hover:text-accent hover:underline" title={`${c.name} — ${t("act_details")}`}>{c.name}</button>
         <p className="truncate text-xs text-muted" title={c.image}>{c.image}</p>
