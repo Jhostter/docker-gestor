@@ -16,13 +16,13 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const g = guard(req); if (g) return g;
   const { name, driver = "bridge" } = await req.json();
-  if (typeof name !== "string" || !/^[\w.-]{1,64}$/.test(name)) return json({ error: "nombre inválido" }, 400);
-  if (!["bridge", "overlay", "macvlan"].includes(driver)) return json({ error: "driver inválido" }, 400);
+  if (typeof name !== "string" || !/^[\w.-]{1,64}$/.test(name)) return json({ error: "invalid name" }, 400);
+  if (!["bridge", "overlay", "macvlan"].includes(driver)) return json({ error: "invalid driver" }, 400);
   try { await docker.createNetwork({ Name: name, Driver: driver }); return json({ ok: true }); } catch (e) { return fail(e); }
 }
 export async function DELETE(req: Request) {
   const g = guard(req); if (g) return g;
   const id = new URL(req.url).searchParams.get("id");
-  if (!id) return json({ error: "falta id" }, 400);
+  if (!id) return json({ error: "missing id" }, 400);
   try { await docker.getNetwork(id).remove(); return json({ ok: true }); } catch (e) { return fail(e); }
 }

@@ -2,11 +2,11 @@ import { PassThrough } from "node:stream";
 import { docker, guard, json } from "@/lib/docker";
 export const dynamic = "force-dynamic";
 
-/** Logs en vivo por Server-Sent Events. */
+/** Live logs over Server-Sent Events. */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const g = guard(req); if (g) return g;
   const { id } = await ctx.params;
-  if (!/^[a-f0-9]{12,64}$/.test(id)) return json({ error: "id inválido" }, 400);
+  if (!/^[a-f0-9]{12,64}$/.test(id)) return json({ error: "invalid id" }, 400);
   const c = docker.getContainer(id);
   const info = await c.inspect();
   const raw = (await c.logs({ follow: true, stdout: true, stderr: true, tail: 200, timestamps: true })) as unknown as NodeJS.ReadableStream & { destroy(): void };

@@ -17,18 +17,18 @@ const PORT = /^(\d{1,5}):(\d{1,5})(\/(tcp|udp))?$/;
 const ENVV = /^[A-Za-z_][A-Za-z0-9_]*=.*$/;
 const VOL = /^[^:\0]+:\/[^:\0]*(:ro|:rw)?$/;
 
-/** Crea (y arranca) un contenedor. Los puertos se publican solo en 127.0.0.1. */
+/** Creates (and starts) a container. Ports are published on 127.0.0.1 only. */
 export async function POST(req: Request) {
   const g = guard(req); if (g) return g;
   const b = await req.json();
   const { image, name, ports = [], env = [], volumes = [], restart = "no", network } = b;
-  if (typeof image !== "string" || !/^[\w./:@-]+$/.test(image)) return json({ error: "imagen inválida" }, 400);
-  if (name && !/^[\w.-]{1,64}$/.test(name)) return json({ error: "nombre inválido" }, 400);
-  if (!["no", "always", "unless-stopped", "on-failure"].includes(restart)) return json({ error: "restart inválido" }, 400);
-  if (network && !/^[\w.-]{1,64}$/.test(network)) return json({ error: "red inválida" }, 400);
-  if (!ports.every((p: string) => PORT.test(p))) return json({ error: "puerto inválido (usa 8080:80)" }, 400);
-  if (!env.every((e: string) => ENVV.test(e))) return json({ error: "variable inválida (usa CLAVE=valor)" }, 400);
-  if (!volumes.every((v: string) => VOL.test(v))) return json({ error: "volumen inválido (usa origen:/ruta)" }, 400);
+  if (typeof image !== "string" || !/^[\w./:@-]+$/.test(image)) return json({ error: "invalid image" }, 400);
+  if (name && !/^[\w.-]{1,64}$/.test(name)) return json({ error: "invalid name" }, 400);
+  if (!["no", "always", "unless-stopped", "on-failure"].includes(restart)) return json({ error: "invalid restart policy" }, 400);
+  if (network && !/^[\w.-]{1,64}$/.test(network)) return json({ error: "invalid network" }, 400);
+  if (!ports.every((p: string) => PORT.test(p))) return json({ error: "invalid port (use 8080:80)" }, 400);
+  if (!env.every((e: string) => ENVV.test(e))) return json({ error: "invalid variable (use KEY=value)" }, 400);
+  if (!volumes.every((v: string) => VOL.test(v))) return json({ error: "invalid volume (use source:/path)" }, 400);
 
   const exposed: Record<string, object> = {}, bindings: Record<string, { HostIp: string; HostPort: string }[]> = {};
   for (const p of ports as string[]) {

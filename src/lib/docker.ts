@@ -10,32 +10,32 @@ export const run = promisify(execFile);
 const PORT = process.env.PORT ?? "4455";
 const ALLOWED_HOSTS = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`]);
 
-/** Protege contra CSRF / DNS rebinding: controlar Docker equivale a ser root. */
+/** Guards against CSRF / DNS rebinding: controlling Docker is equivalent to being root. */
 export function guard(req: Request): Response | null {
   const host = req.headers.get("host") ?? "";
-  if (!ALLOWED_HOSTS.has(host)) return json({ error: "Host no permitido" }, 403);
+  if (!ALLOWED_HOSTS.has(host)) return json({ error: "Host not allowed" }, 403);
   const origin = req.headers.get("origin");
-  if (origin && !ALLOWED_HOSTS.has(new URL(origin).host)) return json({ error: "Origen no permitido" }, 403);
+  if (origin && !ALLOWED_HOSTS.has(new URL(origin).host)) return json({ error: "Origin not allowed" }, 403);
   return null;
 }
 
 export const json = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 
-/** Errores de conexión con Docker → mensaje accionable; el resto, 500 con el mensaje original. */
+/** Connection errors → actionable message plus a `code` the UI translates; anything else → 500 with the original message. */
 export function fail(e: unknown) {
   const code = (e as NodeJS.ErrnoException)?.code;
   const where = `${describe(endpoint.options)} (${endpoint.source})`;
   if (code === "EACCES" || code === "EPERM")
-    return json({ error: `Docker: permiso denegado en ${where}. En Linux añade tu usuario al grupo docker y vuelve a iniciar sesión.` }, 503);
+    return json({ error: `Docker: permission denied at ${where}. On Linux, add your user to the docker group and log in again.`, code: "docker_denied", where }, 503);
   if (code === "ENOENT" || code === "ECONNREFUSED")
-    return json({ error: `No se puede conectar con Docker en ${where}. ¿Está en marcha? Si usa otra ruta, define DOCKER_SOCKET o DOCKER_HOST.` }, 503);
+    return json({ error: `Cannot connect to Docker at ${where}. Is it running? If it uses another path, set DOCKER_SOCKET or DOCKER_HOST.`, code: "docker_unreachable", where }, 503);
   return json({ error: e instanceof Error ? e.message : String(e) }, 500);
 }
 
 export type Snap = { id: string; name: string; cpu: number; mem: number; limit: number };
 
-/** CPU (%) y RAM de un contenedor en ejecución. */
+/** CPU (%) and RAM of a running container. */
 export async function snapshot(c: { Id: string; Names: string[] }): Promise<Snap> {
   const s = await docker.getContainer(c.Id).stats({ stream: false });
   const cpuDelta = s.cpu_stats.cpu_usage.total_usage - s.precpu_stats.cpu_usage.total_usage;

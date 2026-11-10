@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Tokens semánticos: el tema claro/oscuro solo cambia estos valores. */
+/* Semantic tokens: the light/dark theme only changes these values. */
 @theme {
   --color-bg: #0b0b0e;
   --color-surface: #131318;
@@ -21,7 +21,8 @@
 
 html { color-scheme: dark light; }
 body { background: var(--color-bg); color: var(--color-fg); }
-:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* In the base layer so utilities such as `outline-none` can override it */
+@layer base { :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }

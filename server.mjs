@@ -1,10 +1,10 @@
-// Servidor propio: Next.js + WebSocket para la terminal interactiva (docker exec).
+// Custom server: Next.js + a WebSocket for the interactive terminal (docker exec).
 import { createServer } from "node:http";
 import { WebSocketServer } from "ws";
 import Docker from "dockerode";
 import { describe, detected } from "./src/lib/socket.mjs";
 
-// Producción por defecto; `--dev` activa el modo desarrollo (sin depender de la sintaxis de variables de cada shell).
+// Production by default; `--dev` enables development mode (no dependence on each shell's env-var syntax).
 const dev = process.argv.includes("--dev");
 process.env.NODE_ENV = dev ? "development" : "production";
 const { default: next } = await import("next");
@@ -22,7 +22,7 @@ const wss = new WebSocketServer({ noServer: true });
 const server = createServer((req, res) => handle(req, res));
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
-  if (url.pathname !== "/ws/exec") return upgrade(req, socket, head); // HMR de Next en dev
+  if (url.pathname !== "/ws/exec") return upgrade(req, socket, head); // Next's HMR in dev
   const origin = req.headers.origin;
   const ok = ALLOWED.has(req.headers.host ?? "") && (!origin || ALLOWED.has(new URL(origin).host));
   const id = url.searchParams.get("id") ?? "";
@@ -52,4 +52,4 @@ async function terminal(ws, id) {
   }
 }
 
-server.listen(PORT, HOST, () => console.log(`Docker Gestor en http://localhost:${PORT} · Docker: ${describe(endpoint.options)} (${endpoint.source})`));
+server.listen(PORT, HOST, () => console.log(`Docker Gestor listening on http://localhost:${PORT} · Docker: ${describe(endpoint.options)} (${endpoint.source})`));

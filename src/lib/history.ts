@@ -8,7 +8,7 @@ const INTERVAL = Number(process.env.SAMPLE_SECONDS ?? 15) * 1000;
 const RETENTION_MS = Number(process.env.RETENTION_DAYS ?? 7) * 864e5;
 const g = globalThis as unknown as { __db?: DatabaseSync; __timer?: NodeJS.Timeout; __pruned?: number };
 
-/** Carpeta de datos según el sistema (en Linux respeta XDG_DATA_HOME). */
+/** Data folder per OS (honors XDG_DATA_HOME on Linux). */
 function defaultDataDir() {
   const h = homedir();
   if (process.platform === "win32") return join(process.env.LOCALAPPDATA ?? join(h, "AppData", "Local"), "docker-gestor");
@@ -37,11 +37,11 @@ async function sample() {
     d.exec("BEGIN");
     for (const s of snaps) ins.run(ts, s.name, s.cpu, s.mem);
     d.exec("COMMIT");
-    if (ts - (g.__pruned ?? 0) > 36e5) { // limpieza como mucho una vez por hora
+    if (ts - (g.__pruned ?? 0) > 36e5) { // prune at most once per hour
       g.__pruned = ts;
       d.prepare("DELETE FROM samples WHERE ts < ?").run(ts - RETENTION_MS);
     }
-  } catch { /* Docker no disponible: se reintenta en el siguiente ciclo */ }
+  } catch { /* Docker unavailable: retried on the next cycle */ }
 }
 
 export function startSampler() {
@@ -53,7 +53,7 @@ export function startSampler() {
 
 export const RANGES: Record<string, number> = { "1h": 36e5, "24h": 864e5, "7d": 6048e5 };
 
-/** Serie agregada en ~240 puntos como máximo, calculada por SQLite. */
+/** Series aggregated into at most ~240 points, computed by SQLite. */
 export function series(name: string, range: string) {
   const span = RANGES[range] ?? RANGES["1h"];
   const bucket = Math.max(Math.floor(span / 240), INTERVAL);

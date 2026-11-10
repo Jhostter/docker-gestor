@@ -1,7 +1,8 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
+import { useT } from "./i18n";
 
-/* ---------- Iconos (SVG en línea, sin dependencias) ---------- */
+/* ---------- Icons (inline SVG, no dependencies) ---------- */
 const P: Record<string, string> = {
   box: "M21 8 12 3 3 8m18 0v8l-9 5m9-13-9 5m0 8-9-5V8m9 13v-8M3 8l9 5",
   layers: "m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5",
@@ -40,7 +41,7 @@ export const Spinner = ({ className = "size-4" }: { className?: string }) => (
   </svg>
 );
 
-/* ---------- Botones y piezas pequeñas ---------- */
+/* ---------- Buttons and small pieces ---------- */
 type BtnProps = { children?: React.ReactNode; onClick?: () => void; icon?: string; label?: string; kind?: "default" | "primary" | "danger" | "ghost"; busy?: boolean; disabled?: boolean; type?: "button" | "submit" };
 export function Btn({ children, onClick, icon, label, kind = "default", busy, disabled, type = "button" }: BtnProps) {
   const styles = {
@@ -100,9 +101,10 @@ export function Chips<T extends string>({ value, options, onChange }: { value: T
   );
 }
 
-/* ---------- Modal accesible (Esc, clic fuera, foco) ---------- */
+/* ---------- Accessible modal (Esc, click outside, focus) ---------- */
 export function Modal({ title, onClose, children, wide, full, actions, noEsc }: { noEsc?: boolean; title: string; onClose: () => void; children: React.ReactNode; wide?: boolean; full?: boolean; actions?: React.ReactNode }) {
   const id = useId();
+  const { t } = useT();
   const box = useRef<HTMLDivElement>(null);
   const closeRef = useRef(onClose);
   useEffect(() => { closeRef.current = onClose; });
@@ -119,7 +121,7 @@ export function Modal({ title, onClose, children, wide, full, actions, noEsc }: 
         className={`animate-pop flex max-h-full w-full flex-col rounded-xl border border-line bg-surface shadow-2xl outline-none ${full ? "h-full max-w-7xl" : wide ? "max-w-3xl" : "max-w-lg"}`}>
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           <h2 id={id} className="truncate font-semibold">{title}</h2>
-          <div className="flex items-center gap-1">{actions}<Btn kind="ghost" icon="x" label={noEsc ? "Cerrar" : "Cerrar (Esc)"} onClick={onClose} /></div>
+          <div className="flex items-center gap-1">{actions}<Btn kind="ghost" icon="x" label={noEsc ? t("close") : t("close_esc")} onClick={onClose} /></div>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-auto p-4">{children}</div>
       </div>
@@ -127,13 +129,14 @@ export function Modal({ title, onClose, children, wide, full, actions, noEsc }: 
   );
 }
 
-/* ---------- Avisos (toasts) y confirmaciones ---------- */
+/* ---------- Toasts and confirmations ---------- */
 type Toast = { id: number; kind: "ok" | "error" | "info"; text: string };
 type ConfirmOpts = { title: string; body?: string; confirm?: string; danger?: boolean };
 const Ctx = createContext<{ toast: (kind: Toast["kind"], text: string) => void; confirm: (o: ConfirmOpts) => Promise<boolean> } | null>(null);
 export const useUI = () => useContext(Ctx)!;
 
 export function UIProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useT();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [ask, setAsk] = useState<(ConfirmOpts & { done: (v: boolean) => void }) | null>(null);
   const seq = useRef(0);
@@ -148,18 +151,18 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
     <Ctx.Provider value={{ toast, confirm }}>
       {children}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2" aria-live="polite">
-        {toasts.map((t) => (
-          <div key={t.id} role={t.kind === "error" ? "alert" : "status"} className={`animate-pop pointer-events-auto flex items-start gap-2 rounded-lg border bg-surface p-3 text-sm shadow-lg ${t.kind === "error" ? "border-bad/50" : t.kind === "ok" ? "border-ok/50" : "border-line"}`}>
-            <span className={`mt-1 size-2 shrink-0 rounded-full ${t.kind === "error" ? "bg-bad" : t.kind === "ok" ? "bg-ok" : "bg-accent"}`} />
-            <span className="min-w-0 flex-1 break-words">{t.text}</span>
-            <button onClick={() => setToasts((l) => l.filter((x) => x.id !== t.id))} aria-label="Cerrar aviso" className="text-muted hover:text-fg"><Icon name="x" className="size-3.5" /></button>
+        {toasts.map((toastItem) => (
+          <div key={toastItem.id} role={toastItem.kind === "error" ? "alert" : "status"} className={`animate-pop pointer-events-auto flex items-start gap-2 rounded-lg border bg-surface p-3 text-sm shadow-lg ${toastItem.kind === "error" ? "border-bad/50" : toastItem.kind === "ok" ? "border-ok/50" : "border-line"}`}>
+            <span className={`mt-1 size-2 shrink-0 rounded-full ${toastItem.kind === "error" ? "bg-bad" : toastItem.kind === "ok" ? "bg-ok" : "bg-accent"}`} />
+            <span className="min-w-0 flex-1 break-words">{toastItem.text}</span>
+            <button onClick={() => setToasts((l) => l.filter((x) => x.id !== toastItem.id))} aria-label={t("close_toast")} className="text-muted hover:text-fg"><Icon name="x" className="size-3.5" /></button>
           </div>
         ))}
       </div>
       {ask && (
         <Modal title={ask.title} onClose={() => close(false)}>
           {ask.body && <p className="mb-4 text-sm text-muted">{ask.body}</p>}
-          <div className="flex justify-end gap-2"><Btn onClick={() => close(false)}>Cancelar</Btn><Btn kind={ask.danger ? "danger" : "primary"} onClick={() => close(true)}>{ask.confirm ?? "Aceptar"}</Btn></div>
+          <div className="flex justify-end gap-2"><Btn onClick={() => close(false)}>{t("cancel")}</Btn><Btn kind={ask.danger ? "danger" : "primary"} onClick={() => close(true)}>{ask.confirm ?? t("accept")}</Btn></div>
         </Modal>
       )}
     </Ctx.Provider>

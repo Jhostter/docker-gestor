@@ -11,13 +11,13 @@ export async function GET(req: Request) {
 export async function DELETE(req: Request) {
   const g = guard(req); if (g) return g;
   const id = new URL(req.url).searchParams.get("id");
-  if (!id) return json({ error: "falta id" }, 400);
+  if (!id) return json({ error: "missing id" }, 400);
   try { await docker.getImage(id).remove(); return json({ ok: true }); } catch (e) { return fail(e); }
 }
 export async function POST(req: Request) {
   const g = guard(req); if (g) return g;
   const { ref } = await req.json();
-  if (typeof ref !== "string" || !/^[\w./:@-]+$/.test(ref)) return json({ error: "referencia inválida" }, 400);
+  if (typeof ref !== "string" || !/^[\w./:@-]+$/.test(ref)) return json({ error: "invalid reference" }, 400);
   try {
     const stream = await docker.pull(ref);
     await new Promise((res, rej) => docker.modem.followProgress(stream, (e) => (e ? rej(e) : res(null))));

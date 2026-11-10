@@ -1,11 +1,11 @@
-// Detección del endpoint de Docker en Linux, macOS y Windows.
-// Sin dependencias y sin efectos al importar: `detectDocker` recibe todo lo que lee del entorno.
+// Docker endpoint detection for Linux, macOS and Windows.
+// No dependencies and no side effects on import: `detectDocker` receives everything it reads from the environment.
 import { existsSync } from "node:fs";
 import { homedir, platform as osPlatform } from "node:os";
-import { posix } from "node:path"; // las rutas de socket Unix son siempre POSIX, también si se evalúan desde Windows
+import { posix } from "node:path"; // Unix socket paths are always POSIX, even when evaluated on Windows
 import { execFileSync } from "node:child_process";
 
-/** Convierte unix://, npipe://, tcp:// o una ruta en opciones de dockerode. */
+/** Turns unix://, npipe://, tcp:// or a plain path into dockerode options. */
 export function parseHost(h) {
   if (!h) return null;
   if (h.startsWith("unix://")) return { socketPath: h.slice(7) };
@@ -27,16 +27,16 @@ function contextHost() {
 }
 
 /**
- * Orden: DOCKER_SOCKET → DOCKER_HOST → tubería de Windows → sockets habituales
- * (Linux, Docker Desktop, Colima, Rancher Desktop, OrbStack, Docker rootless) → `docker context`.
+ * Order: DOCKER_SOCKET → DOCKER_HOST → Windows named pipe → usual sockets
+ * (Linux, Docker Desktop, Colima, Rancher Desktop, OrbStack, rootless Docker) → `docker context`.
  */
 export function detectDocker({
   env = process.env, platform = osPlatform(), home = homedir(),
   uid = process.getuid?.(), exists = existsSync, context = contextHost,
 } = {}) {
   const explicit = parseHost(env.DOCKER_SOCKET) ?? parseHost(env.DOCKER_HOST);
-  if (explicit) return { options: explicit, source: "variable de entorno" };
-  if (platform === "win32") return { options: { socketPath: "//./pipe/docker_engine" }, source: "predeterminado de Windows" };
+  if (explicit) return { options: explicit, source: "environment variable" };
+  if (platform === "win32") return { options: { socketPath: "//./pipe/docker_engine" }, source: "Windows default" };
 
   const candidates = [
     "/var/run/docker.sock",
@@ -47,17 +47,17 @@ export function detectDocker({
     uid != null ? `/run/user/${uid}/docker.sock` : null, // Docker rootless
   ].filter(Boolean);
   const found = candidates.find((p) => exists(p));
-  if (found) return { options: { socketPath: found }, source: "detectado" };
+  if (found) return { options: { socketPath: found }, source: "auto-detected" };
 
   const ctx = parseHost(context());
   if (ctx) return { options: ctx, source: "docker context" };
-  return { options: { socketPath: "/var/run/docker.sock" }, source: "predeterminado" };
+  return { options: { socketPath: "/var/run/docker.sock" }, source: "default" };
 }
 
-/** Texto legible del endpoint, para logs y mensajes de error. */
+/** Human-readable endpoint, for logs and error messages. */
 export const describe = (o) => (o.socketPath ? o.socketPath : `${o.host}:${o.port}`);
 
-/** Se calcula una sola vez por proceso aunque Next cargue el módulo varias veces. */
+/** Computed once per process even if Next loads the module several times. */
 export function detected() {
   const g = globalThis;
   return (g.__dockerEndpoint ??= detectDocker());

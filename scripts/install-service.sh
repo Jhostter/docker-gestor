@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Instala Docker Gestor como servicio de usuario de systemd (arranca solo y con recursos acotados).
+# Installs Docker Gestor as a systemd user service (starts on its own, with bounded resources).
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
-NODE="$(readlink -f "$(command -v node)")"   # ruta estable (fnm usa enlaces temporales)
+NODE="$(readlink -f "$(command -v node)")"   # stable path (fnm uses temporary symlinks)
 UNIT="$HOME/.config/systemd/user/docker-gestor.service"
 
 cd "$DIR" && npm run build
 mkdir -p "$(dirname "$UNIT")"
 cat > "$UNIT" <<UNITEOF
 [Unit]
-Description=Docker Gestor (panel local de Docker)
+Description=Docker Gestor (local Docker dashboard)
 
 [Service]
 ExecStart=$NODE $DIR/server.mjs
@@ -17,7 +17,7 @@ WorkingDirectory=$DIR
 Environment=NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 NODE_OPTIONS=--max-old-space-size=128
 Restart=on-failure
 RestartSec=5
-# Prioridad mínima para no afectar a la máquina
+# Lowest priority so it never affects the machine
 Nice=15
 CPUWeight=20
 CPUQuota=15%
@@ -31,5 +31,5 @@ WantedBy=default.target
 UNITEOF
 systemctl --user daemon-reload
 systemctl --user enable --now docker-gestor.service
-echo "Listo: http://localhost:4455  (logs: journalctl --user -u docker-gestor -f)"
-loginctl show-user "$USER" -p Linger | grep -q yes || echo "Para que arranque sin iniciar sesión: sudo loginctl enable-linger $USER"
+echo "Done: http://localhost:4455  (logs: journalctl --user -u docker-gestor -f)"
+loginctl show-user "$USER" -p Linger | grep -q yes || echo "To start it at boot without logging in: sudo loginctl enable-linger $USER"

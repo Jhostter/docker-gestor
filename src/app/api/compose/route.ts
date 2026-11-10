@@ -21,14 +21,14 @@ export async function GET(req: Request) {
   try { return json([...(await stacks()).values()]); } catch (e) { return fail(e); }
 }
 
-/** Solo opera sobre stacks que Docker ya conoce; nunca sobre rutas enviadas por el cliente. */
+/** Only acts on stacks Docker already knows; never on paths sent by the client. */
 export async function POST(req: Request) {
   const g = guard(req); if (g) return g;
   const { project, action } = await req.json();
   const s = (await stacks()).get(project);
-  if (!s) return json({ error: "stack desconocido" }, 404);
+  if (!s) return json({ error: "unknown stack" }, 404);
   const cmd = ({ up: ["up", "-d"], down: ["down"], restart: ["restart"], stop: ["stop"], pull: ["pull"] } as Record<string, string[]>)[action];
-  if (!cmd) return json({ error: "acción desconocida" }, 400);
+  if (!cmd) return json({ error: "unknown action" }, 400);
   try {
     const args = ["compose", "-p", s.name, ...s.files.flatMap((f) => ["-f", f]), ...cmd];
     const { stdout, stderr } = await run("docker", args, { cwd: s.dir, timeout: 300_000 });
