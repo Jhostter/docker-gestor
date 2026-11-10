@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, post, postStream, bytes, ago } from "./format";
 import { useT, setLang, hasKey, type Key } from "./i18n";
 import { planMove } from "../lib/groups-core.mjs";
-import { Badge, Btn, Card, Chips, Empty, Icon, Meter, Modal, SearchBox, Spinner, UIProvider, useUI } from "./ui";
+import { Badge, Btn, Card, Chips, Empty, Icon, ListSkeleton, Menu, Meter, Modal, SearchBox, Spinner, UIProvider, useUI } from "./ui";
 
 type Container = { id: string; name: string; image: string; state: string; status: string; ports: string[]; project: string | null };
 type Image = { id: string; tags: string[]; size: number; created: number };
@@ -28,6 +28,7 @@ const Logs = dynamic(() => import("./Logs"), { ssr: false });
 const AlertsView = dynamic(() => import("./Alerts"), { ssr: false });
 const DiskView = dynamic(() => import("./Disk"), { ssr: false });
 const Detail = dynamic(() => import("./Detail"), { ssr: false });
+const Palette = dynamic(() => import("./Palette"), { ssr: false });
 type AlertsPublic = import("./Alerts").AlertsPublic;
 
 const TABS = [
@@ -39,7 +40,9 @@ const tabKey = (id: Tab) => `tab_${id}` as Key;
 
 const hostPort = (p: string) => p.split(":")[0];
 const isHash = (s: string) => /^[a-f0-9]{64}$/.test(s);
-const Loading = ({ label }: { label: string }) => <div className="flex items-center gap-2 py-10 text-muted"><Spinner />{label}</div>;
+const Loading = ({ label }: { label: string }) => <ListSkeleton rows={6} label={label} />;
+/** Sidebar sections: what you manage, and what you observe. The numbers are the keyboard shortcuts (position in TABS). */
+const SECTIONS: { key: Key; ids: Tab[] }[] = [{ key: "nav_manage", ids: ["containers", "compose", "images", "volumes", "networks"] }, { key: "nav_observe", ids: ["events", "alerts", "disk"] }];
 
 export default function Page() { return <UIProvider><App /></UIProvider>; }
 
@@ -55,11 +58,15 @@ function App() {
   const [stats, setStats] = useState<Record<string, Stat>>({});
   const [events, setEvents] = useState<Ev[]>([]);
   const [online, setOnline] = useState<boolean | null>(null);
+  const [dockerDown, setDockerDown] = useState(false);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [logs, setLogs] = useState<Container | null>(null);
   const [term, setTerm] = useState<Container | null>(null);
   const [chart, setChart] = useState<Container | null>(null);
   const [detail, setDetail] = useState<Container | null>(null);
+  const [palette, setPalette] = useState(false);
+  const [mac, setMac] = useState(false);
+  useEffect(() => setMac(/mac|iphone|ipad/i.test(navigator.platform)), []);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [assignments, setAssignments] = useState<Record<string, string>>({});
   const [customGroups, setCustomGroups] = useState<{ name: string; count: number }[]>([]);
@@ -77,37 +84,72 @@ function App() {
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   /* ---- data: only what the active tab needs, nothing while the page is hidden ---- */
+  const seq = useRef<Record<string, number>>({});
+  const onlineRef = useRef<boolean | null>(null);
+  const dockerDownRef = useRef(false);
+  const failing = useRef(false);
+  const settle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  /** Applies only the newest response per resource: an older, slower request must never overwrite newer data. */
+  const fresh = useCallback(async <T,>(key: string, load: () => Promise<T>, apply: (v: T) => void) => {
+    const n = (seq.current[key] = (seq.current[key] ?? 0) + 1);
+    const v = await load();
+    if (seq.current[key] === n) apply(v);
+  }, []);
   const refresh = useCallback(async () => {
     if (document.hidden) return;
     try {
       switch (tabRef.current) {
-        case "containers": setContainers(await api<Container[]>("/api/containers")); break;
-        case "compose": setStacks(await api<Stack[]>("/api/compose")); break;
-        case "images": { const [i, c] = await Promise.all([api<Image[]>("/api/images"), api<Container[]>("/api/containers")]); setImages(i); setContainers(c); break; }
-        case "volumes": setVolumes(await api<Volume[]>("/api/volumes")); break;
-        case "networks": setNetworks(await api<Network[]>("/api/networks")); break;
+        case "containers": await fresh("containers", () => api<Container[]>("/api/containers"), setContainers); break;
+        case "compose": await fresh("compose", () => api<Stack[]>("/api/compose"), setStacks); break;
+        case "images": await Promise.all([fresh("images", () => api<Image[]>("/api/images"), setImages), fresh("containers", () => api<Container[]>("/api/containers"), setContainers)]); break;
+        case "volumes": await fresh("volumes", () => api<Volume[]>("/api/volumes"), setVolumes); break;
+        case "networks": await fresh("networks", () => api<Network[]>("/api/networks"), setNetworks); break;
       }
-    } catch (e) { toast("error", (e as Error).message); }
-  }, [toast]);
+      failing.current = false;
+    } catch (e) { if (!failing.current) toast("error", (e as Error).message); failing.current = true; } // one notice, not one per failed poll
+  }, [toast, fresh]);
+  /** After an action: refresh now and once more shortly after, because Docker may take a moment to show the new state. */
+  const refreshSoon = useCallback(() => { refresh(); clearTimeout(settle.current); settle.current = setTimeout(refresh, 1500); }, [refresh]);
   useEffect(() => { refresh(); }, [tab, refresh]);
 
+  const loadStats = useCallback(() => {
+    if (document.hidden || tabRef.current !== "containers") return;
+    fresh("stats", () => api<Stat[]>("/api/stats"), (l) => setStats(Object.fromEntries(l.map((x) => [x.id, x])))).catch(() => {});
+  }, [fresh]);
+
+  // One stream of Docker events feeds the Events tab and keeps every list current. It reconnects by itself (an EventSource
+  // gives up for good after an HTTP error), catches up as soon as it is back, and refreshes at a bounded rate during bursts.
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    const es = new EventSource("/api/events");
-    es.onopen = () => setOnline(true);
-    es.onerror = () => setOnline(false);
-    es.onmessage = (m) => { setEvents((l) => [JSON.parse(m.data) as Ev, ...l].slice(0, 300)); clearTimeout(timer); timer = setTimeout(refresh, 500); };
-    const vis = () => { if (!document.hidden) refresh(); };
+    let es: EventSource | null = null, retry: ReturnType<typeof setTimeout> | undefined, burst: ReturnType<typeof setTimeout> | undefined, delay = 1000, dead = false, polls = 0;
+    const seen = new Set<string>(); // the server replays the last minutes on every (re)connect: do not list them twice
+    const setOn = (v: boolean) => { onlineRef.current = v; setOnline(v); };
+    const kick = () => { if (burst) return; burst = setTimeout(() => { burst = undefined; refresh(); }, 400); };
+    const connect = () => {
+      if (dead) return;
+      es = new EventSource("/api/events");
+      es.onopen = () => { delay = 1000; setOn(true); refresh(); loadStats(); };
+      es.addEventListener("docker", (m) => { dockerDownRef.current = (m as MessageEvent).data === "down"; setDockerDown(dockerDownRef.current); });
+      es.onmessage = (m) => {
+        const e = JSON.parse(m.data) as Ev, k = `${e.t}|${e.type}|${e.action}|${e.name}`;
+        if (!seen.has(k)) { if (seen.size > 2000) seen.clear(); seen.add(k); setEvents((l) => [e, ...l].slice(0, 300)); }
+        kick();
+      };
+      es.onerror = () => {
+        if (!dockerDownRef.current) setOn(false); // the stream closes right after saying "Docker is down": that is the server doing its job, not a lost server
+        if (es?.readyState === EventSource.CLOSED) { es.close(); es = null; clearTimeout(retry); retry = setTimeout(connect, delay); delay = Math.min(delay * 2, 15000); }
+      };
+    };
+    connect();
+    const vis = () => { if (document.hidden) return; refresh(); if (!es) { clearTimeout(retry); delay = 1000; connect(); } };
     document.addEventListener("visibilitychange", vis);
-    const fallback = setInterval(refresh, 60000);
-    return () => { es.close(); clearTimeout(timer); clearInterval(fallback); document.removeEventListener("visibilitychange", vis); };
-  }, [refresh]);
+    const fallback = setInterval(() => { if (!onlineRef.current || ++polls % 6 === 0) refresh(); }, 10000); // 10 s while disconnected, 60 s otherwise
+    return () => { dead = true; es?.close(); clearTimeout(retry); clearTimeout(burst); clearInterval(fallback); document.removeEventListener("visibilitychange", vis); };
+  }, [refresh, loadStats]);
 
   useEffect(() => {
     if (tab !== "containers") return;
-    const load = () => { if (!document.hidden) api<Stat[]>("/api/stats").then((l) => setStats(Object.fromEntries(l.map((x) => [x.id, x])))).catch(() => {}); };
-    load(); const i = setInterval(load, 10000); return () => clearInterval(i);
-  }, [tab]);
+    loadStats(); const i = setInterval(loadStats, 10000); return () => clearInterval(i);
+  }, [tab, loadStats]);
 
   /* ---- alerts: config for the browser channel; the stream is open only while it is enabled ---- */
   const reloadAlerts = useCallback(async () => { try { setAlertsCfg(await api<AlertsPublic>("/api/alerts/config")); } catch { /* alerts are optional */ } }, []);
@@ -139,6 +181,7 @@ function App() {
   /* ---- keyboard shortcuts ---- */
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "k") { e.preventDefault(); setPalette((o) => !o); return; }
       const el = e.target as HTMLElement;
       if (e.ctrlKey || e.metaKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test(el.tagName) || document.querySelector('[role="dialog"]')) return;
       const n = Number(e.key);
@@ -157,7 +200,7 @@ function App() {
     setBusy((b) => new Set(b).add(key));
     try { await fn(); toast("ok", ok); } catch (e) { toast("error", (e as Error).message); }
     setBusy((b) => { const n = new Set(b); n.delete(key); return n; });
-    refresh();
+    refreshSoon();
   };
   const openCreate = () => {
     api<Network[]>("/api/networks").then(setNetworks).catch(() => {});
@@ -200,7 +243,7 @@ function App() {
     }
     setProgress(null);
     setBusy((b) => { const n = new Set(b); n.delete(key); return n; });
-    refresh();
+    refreshSoon();
     return true;
   };
 
@@ -210,13 +253,23 @@ function App() {
   return (
     <div className="mx-auto flex min-h-screen max-w-[88rem] flex-col md:flex-row">
       <aside className="shrink-0 border-b border-line md:sticky md:top-0 md:h-screen md:w-56 md:border-b-0 md:border-r">
-        <div className="flex items-center gap-2 px-4 py-3 md:py-5"><span className="text-xl" aria-hidden>🐳</span><h1 className="font-bold">Docker Gestor</h1></div>
-        <nav aria-label={t("nav_sections")} className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:pb-0">
-          {TABS.map((x, i) => (
-            <button key={x.id} onClick={() => setTab(x.id)} aria-current={tab === x.id ? "page" : undefined}
-              className={`flex shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium ${tab === x.id ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface2 hover:text-fg"}`}>
-              <Icon name={x.icon} /><span>{t(tabKey(x.id))}</span><kbd className="ml-auto hidden text-[10px] opacity-50 md:inline">{i + 1}</kbd>
-            </button>
+        <div className="flex items-center gap-2 px-4 py-3 md:pb-3 md:pt-5"><span className="text-xl" aria-hidden>🐳</span><h1 className="font-bold">Docker Gestor</h1>
+          <button onClick={() => setPalette(true)} aria-label={t("pal_trigger")} className="ml-auto flex size-8 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-fg md:hidden"><Icon name="search" /></button></div>
+        <div className="hidden px-3 pb-2 md:block">
+          <button onClick={() => setPalette(true)} className="flex w-full items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1.5 text-left text-sm text-muted transition hover:border-accent/50 hover:text-fg">
+            <Icon name="search" className="size-4" /><span className="flex-1 truncate">{t("pal_trigger_short")}</span><kbd className="rounded border border-line px-1 text-[10px]">{mac ? "⌘K" : "Ctrl K"}</kbd>
+          </button>
+        </div>
+        <nav aria-label={t("nav_sections")} className="flex gap-1 overflow-x-auto px-2 pb-2 md:flex-col md:gap-0 md:pb-0">
+          {SECTIONS.map((sec) => (
+            <div key={sec.key} className="flex gap-1 md:flex-col md:gap-0.5" role="group" aria-label={t(sec.key)}>
+              <p className="hidden px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted md:block">{t(sec.key)}</p>
+              {sec.ids.map((id) => { const x = TABS.find((y) => y.id === id)!, i = TABS.indexOf(x); return (
+                <button key={x.id} onClick={() => setTab(x.id)} aria-current={tab === x.id ? "page" : undefined}
+                  className={`flex shrink-0 items-center gap-2.5 rounded-md px-3 py-1.5 text-sm font-medium md:py-2 ${tab === x.id ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface2 hover:text-fg"}`}>
+                  <Icon name={x.icon} /><span>{t(tabKey(x.id))}</span><kbd className="ml-auto hidden text-[10px] opacity-50 md:inline">{i + 1}</kbd>
+                </button>); })}
+            </div>
           ))}
         </nav>
         <div className="hidden flex-col gap-2 border-t border-line p-3 md:absolute md:bottom-0 md:left-0 md:right-0 md:flex">
@@ -229,6 +282,8 @@ function App() {
       </aside>
 
       <main className="min-w-0 flex-1 p-4 pb-20 md:p-6">
+        <h2 className="mb-4 text-xl font-semibold">{t(tabKey(tab))}</h2>
+        {online !== false && dockerDown && <div role="alert" className="mb-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn">{t("dkr_down")}</div>}
         {online === false && <div role="alert" className="mb-4 rounded-lg border border-bad/40 bg-bad/10 p-3 text-sm text-bad">{t("lost_banner")} <code>systemctl --user status docker-gestor</code>.</div>}
         {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail, running, assignments, setAssignments, customGroups, reloadGroups }} />}
         {tab === "compose" && <ComposeView {...{ stacks, busy, run, confirm, setOutput, goTo: (name: string) => { setTab("containers"); setTimeout(() => setSearch(name), 0); } }} />}
@@ -247,8 +302,11 @@ function App() {
       {term && <Terminal id={term.id} name={term.name} onClose={() => setTerm(null)} />}
       {chart && <HistoryChart name={chart.name} onClose={() => setChart(null)} />}
       {creating && <CreateForm networks={(networks ?? []).filter((n) => !["host", "none"].includes(n.name)).map((n) => n.name)} images={(images ?? []).flatMap((i) => i.tags)} onClose={() => setCreating(false)}
-        onSubmit={async (b) => { await post("/api/containers", b); toast("ok", t("created_ok")); refresh(); }} />}
+        onSubmit={async (b) => { await post("/api/containers", b); toast("ok", t("created_ok")); refreshSoon(); }} />}
       {output && <Modal wide title={output.title} onClose={() => setOutput(null)}><pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 font-mono text-xs">{output.text.trim() || t("no_output")}</pre></Modal>}
+      {palette && <Palette tabs={TABS.map((x) => ({ id: x.id, label: t(tabKey(x.id)), icon: x.icon }))} onClose={() => setPalette(false)}
+        onGo={(id) => setTab(id as Tab)} onNew={openCreate} onRefresh={refresh} onTheme={toggleTheme} onLang={toggleLang} onHelp={() => setHelp(true)}
+        onDetails={(c) => setDetail(c as Container)} onLogs={(c) => setLogs(c as Container)} onTerm={(c) => setTerm(c as Container)} onToggle={(c) => ctl(c as Container, c.state === "running" ? "stop" : "start")} />}
       {progress && <ProgressPanel p={progress} />}
       {batchFailed && <Modal wide title={t("grp_failed_title")} onClose={() => setBatchFailed(null)}>{batchFailed.some((f) => f.code?.startsWith("dep_")) && <p className="mb-3 text-sm text-muted">{t("grp_dep_hint")}</p>}<ul className="divide-y divide-line rounded-lg border border-line text-sm">{batchFailed.map((f) => <li key={f.id} className="px-3 py-2"><span className="font-medium">{f.name}</span><p className="text-xs text-bad">{f.code && hasKey(`err_${f.code}`) ? t(`err_${f.code}` as Key, f.vars) : f.error}</p></li>)}</ul></Modal>}
       {help && <HelpModal onClose={() => setHelp(false)} />}
@@ -272,6 +330,9 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
   const [mode, setModeState] = useState<"stack" | "custom" | "none">("stack");
   const [moving, setMoving] = useState(false);
+  const [compact, setCompactState] = useState(false);
+  const setCompact = (v: boolean) => { setCompactState(v); try { localStorage.setItem("density", v ? "compact" : "comfortable"); } catch {} };
+  useEffect(() => { try { setCompactState(localStorage.getItem("density") === "compact"); } catch {} }, []);
   const group = mode !== "none";
   const [drag, setDrag] = useState<string[] | null>(null); // container names being dragged
   const [over, setOver] = useState<string | null>(null);   // group key under the pointer
@@ -338,11 +399,15 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
       <div className="flex flex-wrap items-center gap-2">
         <input type="checkbox" aria-label={t("grp_select_all")} title={t("grp_select_all")} checked={list.length > 0 && list.every((c) => selected.has(c.id))} onChange={(e) => setMany(list, e.target.checked)} ref={(el) => { if (el) el.indeterminate = list.some((c) => selected.has(c.id)) && !list.every((c) => selected.has(c.id)); }} />
         <SearchBox value={search} onChange={setSearch} placeholder={t("search")} inputRef={searchRef} />
-        <Chips value={filter} onChange={setFilter} options={[{ id: "all", label: t("f_all"), count: all.length }, { id: "up", label: t("f_up"), count: running }, { id: "down", label: t("f_down"), count: all.length - running }]} />
-        {mode === "custom" && customGroups.length > 0 && <span className="hidden text-xs text-muted xl:inline">{t("dnd_hint")}</span>}
-        <div className="flex items-center gap-1.5 text-xs text-muted"><span>{t("group_by")}</span><Chips value={mode} onChange={setMode} options={[{ id: "stack", label: t("grp_m_stack") }, { id: "custom", label: t("grp_m_custom") }, { id: "none", label: t("grp_m_none") }]} /></div>
-        <div className="ml-auto"><Btn kind="primary" icon="plus" onClick={openCreate}>{t("new_container")}</Btn></div>
+        <Chips label={t("f_all")} value={filter} onChange={setFilter} options={[{ id: "all", label: t("f_all"), count: all.length }, { id: "up", label: t("f_up"), count: running }, { id: "down", label: t("f_down"), count: all.length - running }]} />
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5 text-xs text-muted"><span className="hidden lg:inline">{t("group_by")}</span><Chips label={t("group_by")} value={mode} onChange={setMode} options={[{ id: "stack", label: t("grp_m_stack") }, { id: "custom", label: t("grp_m_custom") }, { id: "none", label: t("grp_m_none") }]} /></div>
+          <button type="button" onClick={() => setCompact(!compact)} aria-pressed={compact} aria-label={compact ? t("dens_comfy") : t("dens_compact")} title={compact ? t("dens_comfy") : t("dens_compact")}
+            className={`inline-flex size-8 items-center justify-center rounded-md transition ${compact ? "bg-accent/15 text-accent" : "text-muted hover:bg-surface2 hover:text-fg"}`}><Icon name="rows" /></button>
+          <Btn kind="primary" icon="plus" onClick={openCreate}>{t("new_container")}</Btn>
+        </div>
       </div>
+      {mode === "custom" && customGroups.length > 0 && <p className="-mt-1 text-xs text-muted">{t("dnd_hint")}</p>}
       {mode === "custom" && customGroups.length === 0 && all.length > 0 && <p className="rounded-lg border border-dashed border-line px-4 py-3 text-sm text-muted">{t("grp_custom_empty")}</p>}
       {containers === null ? <Loading label={t("loading")} />
         : list.length === 0 ? <Empty icon="box" title={all.length ? t("empty_nomatch") : t("empty_none")} hint={all.length ? t("empty_nomatch_hint") : t("empty_none_hint")} />
@@ -376,7 +441,7 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
               )}
               {!folded && (
                 <Card className="divide-y divide-line overflow-hidden">
-                  {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], busy: busy.has(c.id), checked: selected.has(c.id), toggle: () => toggle(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} handle={mode === "custom" ? dragHandle(c) : undefined} dragging={!!drag && drag.includes(c.name)} />)}
+                  {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], busy: busy.has(c.id), checked: selected.has(c.id), toggle: () => toggle(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} handle={mode === "custom" ? dragHandle(c) : undefined} dragging={!!drag && drag.includes(c.name)} compact={compact} />)}
                 </Card>
               )}
             </div>
@@ -472,34 +537,42 @@ function MoveDialog({ names, groups, current, onClose, onDone }: { names: string
   );
 }
 
-function Row({ c, s, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart, setDetail, handle, dragging }: { handle?: { onStart: (e: React.DragEvent) => void; onEnd: () => void }; dragging?: boolean; c: Container; s?: Stat; busy: boolean; checked: boolean; toggle: () => void; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
+function Row({ c, s, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart, setDetail, handle, dragging, compact }: { compact?: boolean; handle?: { onStart: (e: React.DragEvent) => void; onEnd: () => void }; dragging?: boolean; c: Container; s?: Stat; busy: boolean; checked: boolean; toggle: () => void; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
   const { t } = useT();
   const up = c.state === "running";
   const tone = up ? (/unhealthy/.test(c.status) ? "bad" : /starting/.test(c.status) ? "warn" : "ok") : c.state === "exited" || c.state === "created" ? "muted" : "warn";
+  const stripe = { ok: "border-l-ok/70", bad: "border-l-bad", warn: "border-l-warn", muted: "border-l-line" }[tone]; // the state at a glance
+  const ports = c.ports.length > 0 && (
+    <span className="flex flex-wrap gap-1">{c.ports.map((p) => /\/tcp$/.test(p)
+      ? <a key={p} href={`http://localhost:${hostPort(p)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-surface2 px-1.5 py-0.5 text-xs text-accent hover:underline" title={t("open_url", { port: hostPort(p) })}>:{p.replace("/tcp", "")}<Icon name="link" className="size-3" /></a>
+      : <span key={p} className="rounded bg-surface2 px-1.5 py-0.5 text-xs text-muted">:{p}</span>)}</span>);
   return (
-    <div className={`grid items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[1.25rem_minmax(0,2.2fr)_minmax(0,1.4fr)_7rem_7rem_auto] ${dragging ? "opacity-40" : ""}`}>
-      <div className="flex flex-col items-center gap-1.5">
+    <div className={`grid items-center gap-x-4 gap-y-1 border-l-[3px] px-4 md:grid-cols-[1.25rem_minmax(0,2.4fr)_minmax(0,1.3fr)_6.5rem_6.5rem_auto] ${compact ? "py-1.5" : "py-3"} ${stripe} ${dragging ? "opacity-40" : ""}`}>
+      <div className="flex flex-col items-start gap-1.5 md:items-center">
         <input type="checkbox" checked={checked} onChange={toggle} aria-label={t("grp_row_select", { name: c.name })} />
         {handle && <span draggable onDragStart={handle.onStart} onDragEnd={handle.onEnd} title={t("dnd_handle")} aria-label={t("dnd_handle")} data-drag-handle={c.name} className="-my-0.5 cursor-grab select-none rounded p-0.5 text-muted hover:bg-surface2 hover:text-fg active:cursor-grabbing"><Icon name="grip" className="size-5" /></span>}
       </div>
       <div className="min-w-0">
-        <button onClick={() => setDetail(c)} className="block max-w-full truncate text-left font-medium hover:text-accent hover:underline" title={`${c.name} — ${t("act_details")}`}>{c.name}</button>
-        <p className="truncate text-xs text-muted" title={c.image}>{c.image}</p>
-        {c.ports.length > 0 && <p className="mt-0.5 flex flex-wrap gap-x-2 text-xs">{c.ports.map((p) => /\/tcp$/.test(p)
-          ? <a key={p} href={`http://localhost:${hostPort(p)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-accent hover:underline" title={t("open_url", { port: hostPort(p) })}>:{p.replace("/tcp", "")}<Icon name="link" className="size-3" /></a>
-          : <span key={p} className="text-muted">:{p}</span>)}</p>}
+        <div className="flex min-w-0 items-center gap-2">
+          <button onClick={() => setDetail(c)} className="block min-w-0 truncate text-left font-semibold hover:text-accent hover:underline" title={`${c.name} — ${t("act_details")}`}>{c.name}</button>
+          {compact && ports}
+        </div>
+        {!compact && <p className="truncate text-xs text-muted" title={c.image}>{c.image}</p>}
+        {!compact && c.ports.length > 0 && <div className="mt-1">{ports}</div>}
       </div>
-      <div className="min-w-0"><Badge tone={tone}>{up ? t("badge_running") : c.state === "exited" ? t("badge_stopped") : c.state}</Badge><p className="mt-0.5 truncate text-xs text-muted" title={c.status}>{c.status}</p></div>
-      <div className="text-xs"><span className="text-muted">{t("cpu")} </span><span className="tabular-nums">{s ? s.cpu.toFixed(1) + "%" : "–"}</span><Meter value={s?.cpu ?? 0} label={t("cpu_use")} /></div>
-      <div className="text-xs"><span className="text-muted">{t("ram")} </span><span className="tabular-nums">{s ? bytes(s.mem) : "–"}</span><Meter value={s?.mem ?? 0} max={s?.limit || 1} label={t("mem_use")} /></div>
+      <div className="min-w-0"><Badge tone={tone}>{up ? t("badge_running") : c.state === "exited" ? t("badge_stopped") : c.state}</Badge>{!compact && <p className="mt-0.5 truncate text-xs text-muted" title={c.status}>{c.status}</p>}</div>
+      <div className="text-xs"><span className="text-muted">{t("cpu")} </span><span className="tabular-nums">{s ? s.cpu.toFixed(1) + "%" : "–"}</span>{!compact && <Meter value={s?.cpu ?? 0} label={t("cpu_use")} />}</div>
+      <div className="text-xs"><span className="text-muted">{t("ram")} </span><span className="tabular-nums">{s ? bytes(s.mem) : "–"}</span>{!compact && <Meter value={s?.mem ?? 0} max={s?.limit || 1} label={t("mem_use")} />}</div>
       <div className="flex items-center gap-0.5 justify-self-end">
         {up ? <Btn kind="ghost" icon="stop" label={t("act_stop")} busy={busy} onClick={() => ctl(c, "stop")} /> : <Btn kind="ghost" icon="play" label={t("act_start")} busy={busy} onClick={() => ctl(c, "start")} />}
-        <Btn kind="ghost" icon="restart" label={t("act_restart")} disabled={busy} onClick={() => ctl(c, "restart")} />
-        <Btn kind="ghost" icon="info" label={t("act_details")} onClick={() => setDetail(c)} />
         <Btn kind="ghost" icon="logs" label={t("act_logs")} onClick={() => setLogs(c)} />
-        {up && <Btn kind="ghost" icon="term" label={t("act_term")} onClick={() => setTerm(c)} />}
-        <Btn kind="ghost" icon="chart" label={t("act_chart")} onClick={() => setChart(c)} />
-        <Btn kind="ghost" icon="trash" label={t("delete")} disabled={busy} onClick={() => del(c)} />
+        <Menu label={`${t("act_more")}: ${c.name}`} items={[
+          { id: "details", label: t("act_details"), icon: "info", onSelect: () => setDetail(c) },
+          { id: "restart", label: t("act_restart"), icon: "restart", disabled: busy, onSelect: () => ctl(c, "restart") },
+          ...(up ? [{ id: "term", label: t("act_term"), icon: "term", onSelect: () => setTerm(c) }] : []),
+          { id: "chart", label: t("act_chart"), icon: "chart", onSelect: () => setChart(c) },
+          { id: "delete", label: t("delete"), icon: "trash", danger: true, separatorBefore: true, disabled: busy, onSelect: () => del(c) },
+        ]} />
       </div>
     </div>
   );
@@ -654,7 +727,8 @@ function EventsView({ events, clear }: { events: Ev[]; clear: () => void }) {
 /* ================= Help ================= */
 function HelpModal({ onClose }: { onClose: () => void }) {
   const { t } = useT();
-  const keys: [string, string][] = [[`1 – ${TABS.length}`, t("k_tabs")], ["/", t("k_search")], ["n", t("new_container")], ["r", t("k_refresh")], ["?", t("k_help")], ["Esc", t("k_esc")]];
+  const mac = typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform);
+  const keys: [string, string][] = [[mac ? "⌘ K" : "Ctrl K", t("k_palette")], [`1 – ${TABS.length}`, t("k_tabs")], ["/", t("k_search")], ["n", t("new_container")], ["r", t("k_refresh")], ["?", t("k_help")], ["Esc", t("k_esc")]];
   return (
     <Modal title={t("help_title")} onClose={onClose}>
       <dl className="mb-4 grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 text-sm">

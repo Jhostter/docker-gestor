@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   let off = () => {};
   const body = new ReadableStream({
     start(c) {
-      c.enqueue(enc.encode(": ok\n\n"));
+      c.enqueue(enc.encode("retry: 3000\n: ok\n\n"));
       off = subscribe((a) => { try { c.enqueue(enc.encode(`data: ${JSON.stringify(a)}\n\n`)); } catch { off(); } });
       req.signal.addEventListener("abort", () => off());
     },

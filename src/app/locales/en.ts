@@ -137,4 +137,12 @@ export const en: Record<keyof typeof es, string> = {
   prog_layer: "Layer {n} of {total}", prog_pending: "Queued", prog_working: "Working…", prog_waiting: "Waiting for “{dep}” to be ready… {s} s / {max} s",
   prog_ok: "Done", prog_skipped: "Already so", prog_failed: "Failed", prog_cancel: "Cancel", prog_cancelling: "Cancelling…",
   prog_cancel_hint: "What is already running finishes; no further layers are started.", prog_cancelled: "Cancelled: {ok} done, the rest did not run|Cancelled: {ok} done, the rest did not run",
+  // Redesign: row menu, palette, density, navigation
+  act_more: "More actions", dens_compact: "Compact view", dens_comfy: "Comfortable view", nav_manage: "Manage", nav_observe: "Observe",
+  pal_trigger: "Search or jump to…", pal_trigger_short: "Search…", pal_placeholder: "Type a container, a section or an action…", pal_empty: "Nothing matches your search", pal_hint: "↑↓ move · Enter select · Esc close",
+  pal_go: "Go to {tab}", pal_refresh: "Refresh data", pal_theme: "Toggle theme", pal_lang: "Change language", pal_help: "Help and shortcuts", pal_new: "New container",
+  pal_details: "Details · {name}", pal_logs: "Logs · {name}", pal_term: "Terminal · {name}", pal_chart: "Chart · {name}", pal_start: "Start · {name}", pal_stop: "Stop · {name}",
+  pal_sec_nav: "Sections", pal_sec_actions: "Actions", pal_sec_containers: "Containers", k_palette: "Command palette",
+  // Docker unavailable / reconnection
+  dkr_down: "Docker is not responding. Retrying automatically… What you see may be out of date.",
 };

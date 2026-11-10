@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "./i18n";
 
 /* ---------- Icons (inline SVG, no dependencies) ---------- */
@@ -27,6 +28,8 @@ const P: Record<string, string> = {
   link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1",
   download: "M12 4v12m0 0 4-4m-4 4-4-4M5 20h14",
   down: "M6 9l6 6 6-6",
+  more: "M5 12h2M11 12h2M17 12h2",
+  rows: "M4 9h16M4 15h16",
   grip: "M9 6h1.5M9 12h1.5M9 18h1.5M14 6h1.5M14 12h1.5M14 18h1.5",
   edit: "M4 20h4L19 9l-4-4L4 16v4Zm9-13 4 4",
   info: "M12 8h.01M11 12h1v4h1M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z",
@@ -101,9 +104,9 @@ export function SearchBox({ value, onChange, placeholder, inputRef }: { value: s
     </label>
   );
 }
-export function Chips<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string; count?: number }[]; onChange: (v: T) => void }) {
+export function Chips<T extends string>({ value, options, onChange, label }: { value: T; options: { id: T; label: string; count?: number }[]; onChange: (v: T) => void; label?: string }) {
   return (
-    <div className="flex gap-1 rounded-md bg-surface2 p-0.5" role="group">
+    <div className="flex gap-1 rounded-md bg-surface2 p-0.5" role="group" aria-label={label}>
       {options.map((o) => (
         <button key={o.id} onClick={() => onChange(o.id)} aria-pressed={value === o.id}
           className={`rounded px-2.5 py-1 text-xs font-medium ${value === o.id ? "bg-surface text-fg shadow-sm" : "text-muted hover:text-fg"}`}>
@@ -194,5 +197,78 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
         </Modal>
       )}
     </Ctx.Provider>
+  );
+}
+
+/* ---------- Loading skeletons ---------- */
+export function ListSkeleton({ rows = 5, label }: { rows?: number; label: string }) {
+  return (
+    <div role="status" aria-label={label} className="overflow-hidden rounded-xl border border-line bg-surface">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex animate-pulse items-center gap-4 border-b border-line px-4 py-3 last:border-0">
+          <div className="size-4 rounded bg-surface2" />
+          <div className="min-w-0 flex-1 space-y-2"><div className="h-3.5 w-40 rounded bg-surface2" /><div className="h-3 w-64 max-w-full rounded bg-surface2/70" /></div>
+          <div className="hidden h-6 w-24 rounded-full bg-surface2 md:block" /><div className="hidden h-3 w-16 rounded bg-surface2 md:block" /><div className="h-8 w-20 rounded bg-surface2" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------- Actions menu (accessible: roles, arrow keys, Esc, focus return) ---------- */
+export type MenuItem = { id: string; label: string; icon?: string; danger?: boolean; disabled?: boolean; separatorBefore?: boolean; onSelect: () => void };
+export function Menu({ label, items, icon = "more" }: { label: string; items: MenuItem[]; icon?: string }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [pos, setPos] = useState<{ top?: number; bottom?: number; right: number }>({ right: 0 });
+  const btn = useRef<HTMLButtonElement>(null);
+  const list = useRef<HTMLDivElement>(null);
+  const enabled = items.map((it, i) => (it.disabled ? -1 : i)).filter((i) => i >= 0);
+
+  const show = () => {
+    const r = btn.current!.getBoundingClientRect(), h = items.length * 36 + 12;
+    setPos(r.bottom + h > innerHeight - 8 ? { bottom: innerHeight - r.top + 4, right: innerWidth - r.right } : { top: r.bottom + 4, right: innerWidth - r.right });
+    setActive(enabled[0] ?? 0); setOpen(true);
+  };
+  const close = (refocus = true) => { setOpen(false); if (refocus) btn.current?.focus(); };
+  useEffect(() => {
+    if (!open) return;
+    list.current?.focus();
+    const away = (e: MouseEvent) => { if (!list.current?.contains(e.target as Node) && !btn.current?.contains(e.target as Node)) setOpen(false); };
+    const gone = () => setOpen(false);
+    document.addEventListener("mousedown", away); window.addEventListener("resize", gone); window.addEventListener("scroll", gone, true);
+    return () => { document.removeEventListener("mousedown", away); window.removeEventListener("resize", gone); window.removeEventListener("scroll", gone, true); };
+  }, [open]);
+
+  const move = (d: number) => { const at = enabled.indexOf(active); setActive(enabled[(at + d + enabled.length) % enabled.length]); };
+  const onKey = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); move(1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); move(-1); }
+    else if (e.key === "Home") { e.preventDefault(); setActive(enabled[0]); }
+    else if (e.key === "End") { e.preventDefault(); setActive(enabled[enabled.length - 1]); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); close(); }
+    else if (e.key === "Tab") setOpen(false);
+    else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); const it = items[active]; if (it && !it.disabled) { setOpen(false); it.onSelect(); } }
+  };
+
+  return (
+    <>
+      <button ref={btn} type="button" aria-label={label} title={label} aria-haspopup="menu" aria-expanded={open}
+        onClick={() => (open ? close(false) : show())} onKeyDown={(e) => { if (e.key === "ArrowDown" && !open) { e.preventDefault(); show(); } }}
+        className="inline-flex size-8 items-center justify-center rounded-md text-muted transition hover:bg-surface2 hover:text-fg aria-expanded:bg-surface2 aria-expanded:text-fg"><Icon name={icon} /></button>
+      {open && createPortal(
+        <div ref={list} role="menu" aria-label={label} tabIndex={-1} onKeyDown={onKey} style={{ position: "fixed", ...pos }}
+          className="animate-pop z-50 min-w-52 rounded-lg border border-line bg-surface p-1 shadow-xl outline-none">
+          {items.map((it, i) => (
+            <div key={it.id}>
+              {it.separatorBefore && <div role="separator" className="my-1 border-t border-line" />}
+              <button type="button" role="menuitem" disabled={it.disabled} tabIndex={-1} onMouseMove={() => !it.disabled && setActive(i)} onClick={() => { setOpen(false); it.onSelect(); }}
+                className={`flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm disabled:opacity-40 ${it.danger ? "text-bad" : ""} ${active === i ? (it.danger ? "bg-bad/15" : "bg-surface2") : ""}`}>
+                {it.icon && <Icon name={it.icon} className="size-4 shrink-0" />}{it.label}
+              </button>
+            </div>
+          ))}
+        </div>, document.body)}
+    </>
   );
 }

@@ -5,15 +5,23 @@ export const dynamic = "force-dynamic";
 const IGNORE = /^(exec_|health_status)/; // noise: fired constantly
 const enc = new TextEncoder();
 
-/** Live Docker events (SSE). One connection per tab; no open tabs, no connection. */
+const sse = (body: BodyInit) => new Response(body, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache, no-transform" } });
+
+/**
+ * Live Docker events (SSE). One connection per tab; no open tabs, no connection.
+ * It always answers 200: a browser EventSource that receives an HTTP error gives up for good, so when Docker is
+ * unreachable we send a short stream that tells it to retry in 3 s instead.
+ */
 export async function GET(req: Request) {
   const g = guard(req); if (g) return g;
   const since = Math.floor(Date.now() / 1000) - 600; // last 10 minutes on connect
-  const up = (await docker.getEvents({ since, filters: { type: ["container", "image", "network", "volume"] } })) as unknown as Readable;
+  let up: Readable;
+  try { up = (await docker.getEvents({ since, filters: { type: ["container", "image", "network", "volume"] } })) as unknown as Readable; }
+  catch { return sse(enc.encode("retry: 3000\nevent: docker\ndata: down\n\n")); }
   let buf = "";
   const body = new ReadableStream({
     start(c) {
-      c.enqueue(enc.encode(": ok\n\n"));
+      c.enqueue(enc.encode("retry: 3000\nevent: docker\ndata: up\n\n"));
       up.on("data", (chunk: Buffer) => {
         buf += chunk.toString("utf8");
         const lines = buf.split("\n"); buf = lines.pop() ?? "";
@@ -33,5 +41,5 @@ export async function GET(req: Request) {
     },
     cancel() { up.destroy(); },
   });
-  return new Response(body, { headers: { "content-type": "text/event-stream", "cache-control": "no-cache, no-transform" } });
+  return sse(body);
 }

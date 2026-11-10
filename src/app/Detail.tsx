@@ -24,6 +24,8 @@ export default function Detail({ id, name, onClose, onLogs, onTerminal, onChart 
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => { api<Inspect>(`/api/containers/${id}/inspect`).then(setD).catch((e) => { toast("error", (e as Error).message); onClose(); }); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The window stays open while the container changes (stopped, restarted, health): keep it current without a reload
+  useEffect(() => { const i = setInterval(() => { if (!document.hidden) api<Inspect>(`/api/containers/${id}/inspect`).then(setD).catch(() => {}); }, 4000); return () => clearInterval(i); }, [id]);
 
   const reveal = async (n: string) => {
     setBusy(n);

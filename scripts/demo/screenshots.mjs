@@ -45,9 +45,9 @@ const key = (k) => send("Input.dispatchKeyEvent", { type: "keyDown", key: k, cod
 const png = async (name) => { const r = await send("Page.captureScreenshot", { format: "png" }); writeFileSync(join(OUT, `${name}.png`), Buffer.from(r.result.data, "base64")); console.log("  ", name + ".png"); };
 
 const view = (w, h) => send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 600 });
-async function open({ lang = "en", theme = "dark", w = 1400, h = 860, mode = "stack" } = {}) {
+async function open({ lang = "en", theme = "dark", w = 1400, h = 860, mode = "stack", density = "comfortable" } = {}) {
   await view(w, h); await send("Page.navigate", { url: BASE }); await sleep(1200);
-  await ev(`localStorage.setItem("lang","${lang}"); localStorage.setItem("theme","${theme}"); localStorage.setItem("groupMode","${mode}"); document.documentElement.dataset.theme="${theme}"`);
+  await ev(`localStorage.setItem("lang","${lang}"); localStorage.setItem("theme","${theme}"); localStorage.setItem("groupMode","${mode}"); localStorage.setItem("density","${density}"); document.documentElement.dataset.theme="${theme}"`);
   await send("Page.navigate", { url: BASE }); await sleep(3200);
 }
 // click a button by aria-label or text; optionally restricted to the row/card that mentions `within`
@@ -57,16 +57,23 @@ const click = (label, within) => ev(`(() => { const all=[...document.querySelect
 const addIn = async (legend) => { await ev(`[...document.querySelectorAll('fieldset')].find(f=>f.querySelector('legend').textContent===${JSON.stringify(legend)}).querySelector('button').click()`); await sleep(250); };
 const type = async (selector, text) => { await ev(`document.querySelector(${JSON.stringify(selector)}).focus()`); await send("Input.insertText", { text }); };
 const mouse = (x, y) => send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+// Details, Usage chart, Terminal, Restart and Delete live in the row's "⋯" menu
+const rowAction = async (name, item) => { await ev(`document.querySelector('button[aria-label^="More actions: ${name}"]').click()`); await sleep(350); await ev(`[...document.querySelectorAll('[role=menuitem]')].find(i=>i.innerText.trim()===${JSON.stringify(item)}).click()`); };
+const ctrlK = async () => { const b = { key: "k", code: "KeyK", windowsVirtualKeyCode: 75, modifiers: 2 }; await send("Input.dispatchKeyEvent", { type: "rawKeyDown", ...b }); await send("Input.dispatchKeyEvent", { type: "keyUp", ...b }); await sleep(700); };
+const escKey = async () => { const b = { key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }; await send("Input.dispatchKeyEvent", { type: "rawKeyDown", ...b }); await send("Input.dispatchKeyEvent", { type: "keyUp", ...b }); await sleep(350); };
 const esc = async () => { await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`); await sleep(350); };
 
 console.log("Screenshots →", OUT);
 await open(); await png("containers-dark");
+await open(); await ev(`document.querySelector('button[aria-label^="More actions: shop-db"]').click()`); await sleep(400); await png("row-menu");
+await open(); await ctrlK(); await ev(`document.querySelector('[role=combobox]').focus()`); await send("Input.insertText", { text: "logs api" }); await sleep(500); await png("palette");
+await open({ density: "compact" }); await png("containers-compact");
 await open({ theme: "light" }); await png("containers-light");
 await open({ lang: "es" }); await png("containers-es");
 
 await open(); await click("View logs", "shop-api"); await sleep(2600); await png("logs"); await esc();
 
-await open(); await click("Usage chart", "shop-api"); await sleep(1500); await click("24 h"); await sleep(1200);
+await open(); await rowAction("shop-api", "Usage chart"); await sleep(1500); await click("24 h"); await sleep(1200);
 const box = JSON.parse(await ev(`JSON.stringify(document.querySelector('[role=dialog] svg[role=img]').getBoundingClientRect())`)); await mouse(box.x + box.width * 0.64, box.y + box.height / 2); await sleep(400); await png("chart"); await esc();
 
 await open(); await click("New container"); await sleep(500);
@@ -101,8 +108,8 @@ await open({ mode: "custom", h: 1500 });
 await open();
 await ev(`for (const n of ["shop-web", "shop-api", "grafana"]) document.querySelector('input[aria-label="Select ' + n + '"]').click()`); await sleep(400); await png("groups");
 
-await open(); await click("Details", "node-exporter"); await sleep(1500); await png("detail"); await esc();
-await open(); await click("Details", "shop-api"); await sleep(1200); await click("Environment"); await sleep(500); await png("detail-env"); await esc();
+await open(); await rowAction("node-exporter", "Details"); await sleep(1500); await png("detail"); await esc();
+await open(); await rowAction("shop-api", "Details"); await sleep(1200); await click("Environment"); await sleep(500); await png("detail-env"); await esc();
 
 await open({ h: 1500 }); await click("Disk"); await sleep(2800); await png("disk");
 
@@ -130,13 +137,14 @@ if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0) {
   await sleep(1400);
   await click("Stop", "shop-worker"); await sleep(2200); await click("Start", "shop-worker"); await sleep(1800);
   await click("View logs", "shop-api"); await sleep(3200); await esc();
-  await click("Usage chart", "shop-api"); await sleep(1400);
+  await rowAction("shop-api", "Usage chart"); await sleep(1400);
   const b2 = JSON.parse(await ev(`JSON.stringify(document.querySelector('[role=dialog] svg[role=img]').getBoundingClientRect())`));
   for (let i = 0; i <= 20; i++) { await mouse(b2.x + b2.width * (0.25 + i * 0.03), b2.y + b2.height / 2); await sleep(60); }
   await click("24 h"); await sleep(1500); await esc();
   await ev(`for (const n of ["shop-api", "shop-db"]) document.querySelector('input[aria-label="Select ' + n + '"]').click()`); await sleep(1300); await click("Clear selection"); await sleep(500);
-  await click("Details", "shop-api"); await sleep(1200); await click("Environment"); await sleep(1300); await click("Network"); await sleep(1200); await esc();
+  await rowAction("shop-api", "Details"); await sleep(1200); await click("Environment"); await sleep(1300); await click("Network"); await sleep(1200); await esc();
   await click("My groups"); await sleep(1800); await click("Stack"); await sleep(900);
+  await ctrlK(); await ev(`document.querySelector('[role=combobox]').focus()`); await send("Input.insertText", { text: "logs db" }); await sleep(1500); await escKey();
   await click("Compose"); await sleep(1300); await click("Events"); await sleep(2000); await click("Alerts"); await sleep(1800); await click("Disk"); await sleep(2400); await click("Containers"); await sleep(900);
   await click("Light theme"); await sleep(1400); await click("Change language"); await sleep(1600);
   rec = false; await recorder;

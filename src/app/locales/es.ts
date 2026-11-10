@@ -135,4 +135,12 @@ export const es = {
   prog_layer: "Capa {n} de {total}", prog_pending: "En cola", prog_working: "En curso…", prog_waiting: "Esperando a que «{dep}» esté listo… {s} s / {max} s",
   prog_ok: "Hecho", prog_skipped: "Ya estaba así", prog_failed: "Falló", prog_cancel: "Cancelar", prog_cancelling: "Cancelando…",
   prog_cancel_hint: "Lo que ya está en curso termina; no se lanzan más capas.", prog_cancelled: "Cancelado: {ok} hecho, el resto no se ejecutó|Cancelado: {ok} hechos, el resto no se ejecutó",
+  // Rediseño: menú de fila, paleta, densidad, navegación
+  act_more: "Más acciones", dens_compact: "Vista compacta", dens_comfy: "Vista cómoda", nav_manage: "Gestionar", nav_observe: "Observar",
+  pal_trigger: "Buscar o ir a…", pal_trigger_short: "Buscar…", pal_placeholder: "Escribe un contenedor, una sección o una acción…", pal_empty: "Nada coincide con tu búsqueda", pal_hint: "↑↓ moverte · Enter elegir · Esc cerrar",
+  pal_go: "Ir a {tab}", pal_refresh: "Refrescar datos", pal_theme: "Cambiar tema", pal_lang: "Cambiar idioma", pal_help: "Ayuda y atajos", pal_new: "Nuevo contenedor",
+  pal_details: "Detalles · {name}", pal_logs: "Logs · {name}", pal_term: "Terminal · {name}", pal_chart: "Gráfica · {name}", pal_start: "Iniciar · {name}", pal_stop: "Detener · {name}",
+  pal_sec_nav: "Secciones", pal_sec_actions: "Acciones", pal_sec_containers: "Contenedores", k_palette: "Paleta de comandos",
+  // Docker no disponible / reconexión
+  dkr_down: "Docker no responde. Reintentando automáticamente… Lo que ves puede estar desactualizado.",
 } as const;
