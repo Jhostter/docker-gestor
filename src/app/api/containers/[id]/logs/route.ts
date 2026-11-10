@@ -14,6 +14,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   let out: PassThrough | undefined;
   const body = new ReadableStream({
     start(controller) {
+      controller.enqueue(enc.encode(": ok\n\n"));
       const send = (b: Buffer) => {
         for (const line of b.toString("utf8").split("\n")) if (line) controller.enqueue(enc.encode(`data: ${JSON.stringify(line)}\n\n`));
       };
@@ -22,7 +23,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
         out = new PassThrough(); out.on("data", send);
         docker.modem.demuxStream(raw, out, out);
       }
-      raw.on("end", () => { try { controller.close(); } catch {} });
+      raw.on("end", () => { try { controller.enqueue(enc.encode("event: end\ndata: 1\n\n")); controller.close(); } catch {} });
       raw.on("error", () => { try { controller.close(); } catch {} });
       req.signal.addEventListener("abort", () => { raw.destroy(); out?.destroy(); });
     },

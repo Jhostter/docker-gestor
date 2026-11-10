@@ -1,27 +1,69 @@
 "use client";
 import { useState } from "react";
+import { Btn, Icon, Modal } from "./ui";
 
-const lines = (s: string) => s.split("\n").map((l) => l.trim()).filter(Boolean);
-const field = "w-full rounded bg-zinc-950 px-3 py-1.5 text-sm";
+const RE = { port: /^\d{1,5}:\d{1,5}(\/(tcp|udp))?$/, env: /^[A-Za-z_][A-Za-z0-9_]*=.*$/, vol: /^[^:\0]+:\/[^:\0]*(:ro|:rw)?$/ };
+const field = "w-full rounded-md border border-line bg-bg px-3 py-2 text-sm placeholder:text-muted";
 
-export default function CreateForm({ networks, onClose, onSubmit }: { networks: string[]; onClose: () => void; onSubmit: (body: object) => void }) {
-  const [f, setF] = useState({ image: "", name: "", ports: "", env: "", volumes: "", restart: "no", network: "" });
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
+function List({ label, hint, values, onChange, placeholder, valid }: { label: string; hint: string; values: string[]; onChange: (v: string[]) => void; placeholder: string; valid: RegExp }) {
   return (
-    <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/80 p-6">
-      <form className="w-full max-w-lg space-y-3 rounded bg-zinc-900 p-5" onSubmit={(e) => { e.preventDefault(); onSubmit({ image: f.image, name: f.name || undefined, ports: lines(f.ports), env: lines(f.env), volumes: lines(f.volumes), restart: f.restart, network: f.network || undefined }); onClose(); }}>
-        <h2 className="font-semibold">Nuevo contenedor</h2>
-        <input required placeholder="Imagen (nginx:latest)" value={f.image} onChange={set("image")} className={field} />
-        <input placeholder="Nombre (opcional)" value={f.name} onChange={set("name")} className={field} />
-        <textarea placeholder={"Puertos, uno por línea (se publican en 127.0.0.1)\n8080:80"} rows={2} value={f.ports} onChange={set("ports")} className={field} />
-        <textarea placeholder={"Variables, una por línea\nCLAVE=valor"} rows={2} value={f.env} onChange={set("env")} className={field} />
-        <textarea placeholder={"Volúmenes, uno por línea\nmi_volumen:/data"} rows={2} value={f.volumes} onChange={set("volumes")} className={field} />
-        <div className="flex gap-2">
-          <select value={f.restart} onChange={set("restart")} className={field}>{["no", "always", "unless-stopped", "on-failure"].map((r) => <option key={r}>{r}</option>)}</select>
-          <select value={f.network} onChange={set("network")} className={field}><option value="">red por defecto</option>{networks.map((n) => <option key={n}>{n}</option>)}</select>
+    <fieldset className="space-y-1.5">
+      <legend className="text-sm font-medium">{label}</legend>
+      <p className="text-xs text-muted">{hint}</p>
+      {values.map((v, i) => (
+        <div key={i} className="flex gap-1.5">
+          <input aria-label={`${label} ${i + 1}`} value={v} placeholder={placeholder} onChange={(e) => onChange(values.map((x, j) => (j === i ? e.target.value : x)))}
+            className={`${field} ${v && !valid.test(v) ? "border-bad" : ""}`} />
+          <Btn kind="ghost" icon="x" label="Quitar" onClick={() => onChange(values.filter((_, j) => j !== i))} />
         </div>
-        <div className="flex justify-end gap-2"><button type="button" onClick={onClose} className="rounded bg-zinc-800 px-3 py-1.5 text-sm">Cancelar</button><button className="rounded bg-sky-700 px-3 py-1.5 text-sm">Crear e iniciar</button></div>
+      ))}
+      <button type="button" onClick={() => onChange([...values, ""])} className="flex items-center gap-1 text-xs text-accent hover:underline"><Icon name="plus" className="size-3" />Añadir</button>
+    </fieldset>
+  );
+}
+
+export default function CreateForm({ networks, images, onClose, onSubmit }: { networks: string[]; images: string[]; onClose: () => void; onSubmit: (body: object) => Promise<void> }) {
+  const [image, setImage] = useState(""), [name, setName] = useState(""), [restart, setRestart] = useState("no"), [network, setNetwork] = useState("");
+  const [ports, setPorts] = useState<string[]>([]), [env, setEnv] = useState<string[]>([]), [vols, setVols] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false), [err, setErr] = useState("");
+  const clean = (a: string[]) => a.map((x) => x.trim()).filter(Boolean);
+  const bad = !image.trim() || clean(ports).some((v) => !RE.port.test(v)) || clean(env).some((v) => !RE.env.test(v)) || clean(vols).some((v) => !RE.vol.test(v));
+
+  return (
+    <Modal wide title="Nuevo contenedor" onClose={onClose}>
+      <form className="space-y-4" onSubmit={async (e) => {
+        e.preventDefault(); setBusy(true); setErr("");
+        try { await onSubmit({ image: image.trim(), name: name.trim() || undefined, ports: clean(ports), env: clean(env), volumes: clean(vols), restart, network: network || undefined }); onClose(); }
+        catch (ex) { setErr((ex as Error).message); setBusy(false); }
+      }}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm font-medium">Imagen *
+            <input required list="local-images" autoFocus value={image} onChange={(e) => setImage(e.target.value)} placeholder="nginx:latest" className={`${field} mt-1 font-normal`} />
+            <datalist id="local-images">{images.map((i) => <option key={i} value={i} />)}</datalist>
+            <span className="mt-1 block text-xs font-normal text-muted">Si no existe localmente, se descargará.</span>
+          </label>
+          <label className="block text-sm font-medium">Nombre
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="(automático)" className={`${field} mt-1 font-normal`} />
+          </label>
+        </div>
+        <List label="Puertos" hint="anfitrión:contenedor, p. ej. 8080:80 (o 53:53/udp). Se publican solo en 127.0.0.1." values={ports} onChange={setPorts} placeholder="8080:80" valid={RE.port} />
+        <List label="Variables de entorno" hint="CLAVE=valor" values={env} onChange={setEnv} placeholder="POSTGRES_PASSWORD=secreto" valid={RE.env} />
+        <List label="Volúmenes" hint="origen:/ruta/en/contenedor — origen puede ser un volumen con nombre o una ruta del anfitrión; añade :ro para solo lectura." values={vols} onChange={setVols} placeholder="mis_datos:/var/lib/data" valid={RE.vol} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block text-sm font-medium">Reinicio automático
+            <select value={restart} onChange={(e) => setRestart(e.target.value)} className={`${field} mt-1 font-normal`}>
+              <option value="no">No reiniciar</option><option value="unless-stopped">Salvo que se detenga a mano</option><option value="always">Siempre</option><option value="on-failure">Solo si falla</option>
+            </select>
+          </label>
+          <label className="block text-sm font-medium">Red
+            <select value={network} onChange={(e) => setNetwork(e.target.value)} className={`${field} mt-1 font-normal`}>
+              <option value="">Por defecto (bridge)</option>{networks.map((n) => <option key={n}>{n}</option>)}
+            </select>
+          </label>
+        </div>
+        {err && <p role="alert" className="rounded-md bg-bad/10 p-2 text-sm text-bad">{err}</p>}
+        <div className="flex justify-end gap-2"><Btn onClick={onClose}>Cancelar</Btn><Btn type="submit" kind="primary" busy={busy} disabled={bad}>Crear e iniciar</Btn></div>
       </form>
-    </div>
+    </Modal>
   );
 }

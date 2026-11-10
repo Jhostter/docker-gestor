@@ -1,1 +1,28 @@
 @import "tailwindcss";
+
+/* Tokens semánticos: el tema claro/oscuro solo cambia estos valores. */
+@theme {
+  --color-bg: #0b0b0e;
+  --color-surface: #131318;
+  --color-surface2: #1c1c23;
+  --color-line: #2a2a33;
+  --color-fg: #ececf1;
+  --color-muted: #9a9aa8;
+  --color-accent: #0ea5e9;
+  --color-accent-fg: #ffffff;
+  --color-ok: #34d399;
+  --color-bad: #f87171;
+  --color-warn: #fbbf24;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) { --color-bg:#f4f5f7; --color-surface:#ffffff; --color-surface2:#eceef2; --color-line:#d9dce3; --color-fg:#15161a; --color-muted:#5b5f6b; --color-accent:#0369a1; --color-ok:#047857; --color-bad:#b91c1c; --color-warn:#b45309; }
+}
+:root[data-theme="light"] { --color-bg:#f4f5f7; --color-surface:#ffffff; --color-surface2:#eceef2; --color-line:#d9dce3; --color-fg:#15161a; --color-muted:#5b5f6b; --color-accent:#0369a1; --color-ok:#047857; --color-bad:#b91c1c; --color-warn:#b45309; }
+
+html { color-scheme: dark light; }
+body { background: var(--color-bg); color: var(--color-fg); }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.animate-pop { animation: pop .15s ease-out; }

@@ -13,6 +13,7 @@ export async function GET(req: Request) {
   let buf = "";
   const body = new ReadableStream({
     start(c) {
+      c.enqueue(enc.encode(": ok\n\n"));
       up.on("data", (chunk: Buffer) => {
         buf += chunk.toString("utf8");
         const lines = buf.split("\n"); buf = lines.pop() ?? "";
