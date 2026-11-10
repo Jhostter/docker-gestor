@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.6.0] - 2026-11-10
 
 ### Added
 - **Group start and restart now wait for healthy dependencies.** When Compose declares `service_healthy` (or `service_completed_successfully`), dependents start only after the dependency is ready, like `docker compose up`. If it never gets ready, the dependents (and whatever depends on them) are **not started** and the failure window explains why (timed out, became unhealthy, stopped), translated into your language.

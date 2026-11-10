@@ -162,6 +162,8 @@ Los contenedores se agrupan por stack de Compose (se desactiva con *Agrupar por 
 
 **Esperar a que un servicio esté listo.** Si Compose declara una dependencia como `service_healthy` (o `service_completed_successfully`, típico de contenedores de preparación que se ejecutan una vez), iniciar o reiniciar un grupo **espera** a que esté lista antes de arrancar lo que depende de ella, igual que hace `docker compose up`. Si la dependencia nunca llega a estar lista, lo que depende de ella **no se arranca** (ni lo que depende de eso), y la ventana de errores explica por qué: se agotó el tiempo, pasó a no saludable o se detuvo. Una dependencia sin comprobación de salud no se espera, `service_started` nunca espera, y parar o eliminar tampoco esperan.
 
+![Un inicio de grupo que rechazó servicios cuya base de datos nunca llegó a estar saludable](img/health-failure.png)
+
 - La dependencia se busca **dentro del mismo proyecto de Compose**, aunque no esté en tu selección: pulsar *Iniciar todos* solo sobre los contenedores detenidos de un stack sigue esperando a una base de datos que está en marcha pero aún no saludable. Si esa dependencia está detenida, el dependiente se rechaza en lugar de arrancar sin ella.
 - La espera es de hasta **90 segundos** por dependencia; se cambia con `HEALTH_WAIT_SECONDS` (de 1 a 600). Un fallo por dependencia no saludable o detenida se comunica enseguida, no al final del tiempo.
 

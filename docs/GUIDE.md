@@ -155,6 +155,8 @@ Containers are grouped by Compose stack (switch it off with *Group by stack*). E
 
 **Waiting for a service to be ready.** If Compose declares a dependency as `service_healthy` (or `service_completed_successfully`, typical for one-off setup containers), starting or restarting a group **waits** for it before starting what depends on it, exactly like `docker compose up` does. If the dependency never gets ready, whatever depends on it is **not started** (and neither is whatever depends on that), and the failure window says why: it timed out, it became unhealthy, or it stopped. A dependency with no health check is not waited for, `service_started` never waits, and stopping or deleting never waits either.
 
+![A group start that refused services whose database never became healthy](img/health-failure.png)
+
 - The dependency is looked up **inside the same Compose project**, even if it is not part of your selection: pressing *Start all* on only the stopped containers of a stack still waits for a database that is running but not yet healthy. If that dependency is stopped, the dependent is refused rather than started without it.
 - The wait is up to **90 seconds** per dependency; change it with `HEALTH_WAIT_SECONDS` (1 to 600). A failure caused by an unhealthy or stopped dependency is reported immediately, not after the timeout.
 
