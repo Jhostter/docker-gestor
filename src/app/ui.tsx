@@ -27,6 +27,7 @@ const P: Record<string, string> = {
   link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1",
   download: "M12 4v12m0 0 4-4m-4 4-4-4M5 20h14",
   down: "M6 9l6 6 6-6",
+  bell: "M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
 };
 export function Icon({ name, className = "size-4" }: { name: keyof typeof P | string; className?: string }) {
   return (
@@ -54,6 +55,14 @@ export function Btn({ children, onClick, icon, label, kind = "default", busy, di
     <button type={type} onClick={onClick} disabled={disabled || busy} aria-label={label} title={label}
       className={`inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed ${children ? "px-3 py-1.5" : "size-8"} ${styles}`}>
       {busy ? <Spinner /> : icon && <Icon name={icon} />}{children}
+    </button>
+  );
+}
+export function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={checked} aria-label={label} title={label} onClick={() => onChange(!checked)}
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${checked ? "bg-accent" : "bg-line"}`}>
+      <span className={`absolute top-0.5 size-4 rounded-full bg-white shadow transition-all ${checked ? "left-[1.125rem]" : "left-0.5"}`} />
     </button>
   );
 }

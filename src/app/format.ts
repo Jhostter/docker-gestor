@@ -16,14 +16,14 @@ export const ago = (ms: number, lang: string = getLang()) => {
   return rtf.format(Math.round(s / 86400), "day");
 };
 
-type ApiError = { error?: string; code?: string; where?: string };
+type ApiError = { error?: string; code?: string; where?: string; vars?: Record<string, string | number> };
 
 export async function api<T = unknown>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, init);
   const d = await r.json().catch(() => ({}));
   if (!r.ok) {
     const e = d as ApiError, key = `err_${e.code}`;
-    throw new Error(e.code && hasKey(key) ? tr(key, { where: e.where ?? "" }) : (e.error ?? r.statusText));
+    throw new Error(e.code && hasKey(key) ? tr(key, { where: e.where ?? "", ...(e.vars ?? {}) }) : (e.error ?? r.statusText));
   }
   return d as T;
 }

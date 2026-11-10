@@ -53,4 +53,23 @@ export const en: Record<keyof typeof es, string> = {
   // Docker connection errors (the server sends a code)
   err_docker_denied: "Docker: permission denied at {where}. On Linux, add your user to the docker group and log in again.",
   err_docker_unreachable: "Cannot connect to Docker at {where}. Is it running? If it uses another path, set DOCKER_SOCKET or DOCKER_HOST.",
+  // Alerts
+  tab_alerts: "Alerts", al_enabled: "Alerts enabled", al_enabled_hint: "Watches Docker events and resource usage and notifies you through the channels you enable. Telegram and webhook keep working with the tab closed.",
+  al_watching: "Watching Docker", al_off: "Off", al_rules: "What to alert on",
+  al_r_died: "A container crashes", al_r_died_h: "Exits with a non-zero code without you stopping it.", al_r_oom: "Out of memory (OOM)", al_r_oom_h: "The system kills it for lack of memory.",
+  al_r_unhealthy: "Unhealthy", al_r_unhealthy_h: "Fails its health check; also tells you when it recovers.", al_r_loop: "Restart loop", al_r_loop_h: "Crashes several times in a short time.",
+  al_r_cpu: "High CPU", al_r_cpu_h: "Stays above the percentage for the whole period.", al_r_mem: "High memory", al_r_mem_h: "Percentage of its memory limit (or of the machine's RAM when it has no limit).",
+  al_f_count: "Crashes", al_f_minutes: "Minutes", al_f_percent: "Percent", al_cooldown: "Do not repeat the same alert for (min)",
+  al_channels: "Where to notify", al_browser: "Browser notifications", al_browser_h: "Only while a Docker Gestor tab is open.",
+  al_perm_granted: "Permission granted", al_perm_denied: "Blocked in the browser", al_perm_default: "No permission yet", al_perm_unsupported: "Your browser does not support them", al_perm_ask: "Allow notifications",
+  al_telegram: "Telegram", al_tg_hint: "Create a bot with @BotFather, send it a message and use its token and your chat ID.", al_tg_token: "Bot token", al_tg_chat: "Chat ID",
+  al_secret_saved: "Saved (empty = keep)", al_remove_secret: "Remove",
+  al_webhook: "Webhook", al_wh_hint: "Sends a POST with JSON (works with Discord and Slack) or plain text (ntfy).", al_wh_url: "URL", al_wh_format: "Format", al_fmt_json: "JSON", al_fmt_text: "Plain text", al_wh_auth: "Authorization header (optional)",
+  al_test: "Send test", al_test_ok: "Test sent", al_save: "Save changes", al_saved: "Alerts saved", al_save_first: "Save your changes before testing", al_incomplete: "Fill in the details to test",
+  al_last_error: "Last error: {error}", al_last_ok: "Last successful delivery {ago}", al_history: "History", al_history_empty: "No alert has fired yet.",
+  al_security: "The token and URL are stored in a local file that only your user can read.",
+  al_b_died: "Crash", al_b_oom: "OOM", al_b_unhealthy: "Health", al_b_recovered: "Recovered", al_b_restartLoop: "Loop", al_b_cpu: "CPU", al_b_memory: "Memory", al_b_test: "Test",
+  err_invalid_telegram_token: "The Telegram token has the wrong format (123456:ABC…).", err_invalid_telegram_chat: "The chat ID must be a number (or @channel).",
+  err_telegram_incomplete: "Telegram needs a token and a chat ID.", err_invalid_webhook_url: "The webhook URL must start with http:// or https://.", err_webhook_incomplete: "The webhook needs a URL.",
+  err_invalid_authorization: "The Authorization header is not valid.", err_alert_test_failed: "Test failed: {reason}",
 };

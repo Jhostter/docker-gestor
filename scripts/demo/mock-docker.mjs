@@ -11,11 +11,12 @@ try { rmSync(sock); } catch { /* not there */ }
 
 const state = CONTAINERS.map((c) => ({ ...c }));
 const listeners = new Set();
-const emit = (type, action, name, image = "") => {
-  const t = Date.now(), line = JSON.stringify({ Type: type, Action: action, Actor: { ID: name, Attributes: { name, image } }, time: Math.floor(t / 1000), timeNano: t * 1e6 }) + "\n";
+const emit = (type, action, name, image = "", extra = {}) => {
+  const t = Date.now(), line = JSON.stringify({ Type: type, Action: action, Actor: { ID: ctrId(name), Attributes: { name, image, ...extra } }, time: Math.floor(t / 1000), timeNano: t * 1e6 }) + "\n";
   listeners.forEach((w) => w.write(line));
 };
 const json = (res, data, code = 200) => { res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(data)); };
+const ctrId = (name) => state.find((c) => c.name === name)?.id ?? name;
 const find = (idOrName) => state.find((c) => c.id.startsWith(idOrName) || c.name === idOrName);
 
 const summary = (c) => ({
@@ -64,7 +65,7 @@ http.createServer((req, res) => {
     }
     if (m === "POST") {
       const was = c.state;
-      if (r[2] === "stop") { c.state = "exited"; c.status = "Exited (0) just now"; emit("container", "die", c.name, c.image); emit("container", "stop", c.name, c.image); }
+      if (r[2] === "stop") { c.state = "exited"; c.status = "Exited (143) just now"; emit("container", "die", c.name, c.image, { exitCode: "143" }); emit("container", "stop", c.name, c.image); } // exit code 143 like a real `docker stop` (SIGTERM)
       else { c.state = "running"; c.status = "Up a few seconds"; emit("container", r[2] === "restart" && was === "running" ? "restart" : "start", c.name, c.image); }
       res.writeHead(204); return res.end();
     }
@@ -83,8 +84,17 @@ http.createServer((req, res) => {
     const t = Date.now(), seed = [[-540, "container", "start", "mailpit"], [-480, "network", "connect", "bridge"], [-400, "container", "die", "old-experiment"], [-399, "container", "stop", "old-experiment"],
       [-300, "image", "pull", "node:22-alpine"], [-240, "container", "start", "shop-worker"], [-200, "network", "create", "monitoring_default"], [-120, "container", "restart", "shop-api"],
       [-60, "volume", "create", "mailpit_data"], [-30, "container", "start", "grafana"]];
-    for (const [dt, type, action, name] of seed) { const ms = t + dt * 1000; res.write(JSON.stringify({ Type: type, Action: action, Actor: { ID: name, Attributes: { name } }, time: Math.floor(ms / 1000), timeNano: ms * 1e6 }) + "\n"); }
+    const since = Number(u.searchParams.get("since") ?? 0) * 1000;
+    for (const [dt, type, action, name] of seed) { const ms = t + dt * 1000; if (ms < since) continue; res.write(JSON.stringify({ Type: type, Action: action, Actor: { ID: name, Attributes: { name } }, time: Math.floor(ms / 1000), timeNano: ms * 1e6 }) + "\n"); }
     listeners.add(res); req.on("close", () => listeners.delete(res)); return;
+  }
+  if (m === "POST" && (r = p.match(/^\/_demo\/(crash|oom|unhealthy|healthy)\/([^/]+)$/))) {
+    // Fault injection for demos and the alerts end-to-end test; it does not exist in the real Docker API.
+    const c = find(r[2]); if (!c) return json(res, { message: "No such container" }, 404);
+    if (r[1] === "crash") { c.state = "exited"; c.status = "Exited (1) just now"; emit("container", "die", c.name, c.image, { exitCode: "1" }); }
+    else if (r[1] === "oom") emit("container", "oom", c.name, c.image);
+    else emit("container", r[1] === "unhealthy" ? "health_status: unhealthy" : "health_status: healthy", c.name, c.image);
+    return json(res, { ok: true });
   }
   json(res, { message: `mock: ${m} ${p} not implemented` }, 501);
 }).listen(sock, () => console.log(`mock Docker API on ${sock}`));

@@ -32,7 +32,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/*.test.mjs\"",
     "smoke": "node scripts/smoke.mjs",
-    "demo:shots": "node scripts/demo/screenshots.mjs"
+    "demo:shots": "node scripts/demo/screenshots.mjs",
+    "e2e:alerts": "node scripts/e2e-alerts.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

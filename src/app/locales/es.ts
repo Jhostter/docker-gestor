@@ -51,4 +51,23 @@ export const es = {
   // Errores de conexión con Docker (el servidor envía un código)
   err_docker_denied: "Docker: permiso denegado en {where}. En Linux añade tu usuario al grupo docker y vuelve a iniciar sesión.",
   err_docker_unreachable: "No se puede conectar con Docker en {where}. ¿Está en marcha? Si usa otra ruta, define DOCKER_SOCKET o DOCKER_HOST.",
+  // Alertas
+  tab_alerts: "Alertas", al_enabled: "Alertas activadas", al_enabled_hint: "Vigila los eventos de Docker y el consumo, y avisa por los canales que actives. Telegram y webhook funcionan aunque cierres la pestaña.",
+  al_watching: "Vigilando Docker", al_off: "Desactivadas", al_rules: "Qué avisar",
+  al_r_died: "Un contenedor se cae", al_r_died_h: "Termina con un código distinto de 0 sin que lo hayas detenido tú.", al_r_oom: "Sin memoria (OOM)", al_r_oom_h: "El sistema lo detiene por falta de memoria.",
+  al_r_unhealthy: "No saludable", al_r_unhealthy_h: "Falla su comprobación de salud; avisa también cuando se recupera.", al_r_loop: "Reinicios en bucle", al_r_loop_h: "Se cae varias veces seguidas en poco tiempo.",
+  al_r_cpu: "CPU alta", al_r_cpu_h: "Se mantiene por encima del porcentaje durante todo el periodo.", al_r_mem: "Memoria alta", al_r_mem_h: "Porcentaje de su límite de memoria (o de la RAM del equipo si no tiene límite).",
+  al_f_count: "Caídas", al_f_minutes: "Minutos", al_f_percent: "Porcentaje", al_cooldown: "No repetir la misma alerta durante (min)",
+  al_channels: "Dónde avisar", al_browser: "Notificaciones del navegador", al_browser_h: "Solo mientras haya una pestaña de Docker Gestor abierta.",
+  al_perm_granted: "Permiso concedido", al_perm_denied: "Bloqueadas en el navegador", al_perm_default: "Aún sin permiso", al_perm_unsupported: "Tu navegador no las admite", al_perm_ask: "Permitir notificaciones",
+  al_telegram: "Telegram", al_tg_hint: "Crea un bot con @BotFather, escríbele un mensaje y usa su token y tu ID de chat.", al_tg_token: "Token del bot", al_tg_chat: "ID de chat",
+  al_secret_saved: "Guardado (vacío = conservar)", al_remove_secret: "Quitar",
+  al_webhook: "Webhook", al_wh_hint: "Envía un POST con JSON (compatible con Discord y Slack) o con texto plano (ntfy).", al_wh_url: "URL", al_wh_format: "Formato", al_fmt_json: "JSON", al_fmt_text: "Texto plano", al_wh_auth: "Cabecera Authorization (opcional)",
+  al_test: "Enviar prueba", al_test_ok: "Prueba enviada", al_save: "Guardar cambios", al_saved: "Alertas guardadas", al_save_first: "Guarda los cambios antes de probar", al_incomplete: "Completa los datos para probar",
+  al_last_error: "Último error: {error}", al_last_ok: "Último envío correcto {ago}", al_history: "Historial", al_history_empty: "Todavía no ha saltado ninguna alerta.",
+  al_security: "El token y la URL se guardan en un archivo local que solo puede leer tu usuario.",
+  al_b_died: "Caída", al_b_oom: "OOM", al_b_unhealthy: "Salud", al_b_recovered: "Recuperado", al_b_restartLoop: "Bucle", al_b_cpu: "CPU", al_b_memory: "Memoria", al_b_test: "Prueba",
+  err_invalid_telegram_token: "El token de Telegram no tiene el formato correcto (123456:ABC…).", err_invalid_telegram_chat: "El ID de chat debe ser un número (o @canal).",
+  err_telegram_incomplete: "Telegram necesita token e ID de chat.", err_invalid_webhook_url: "La URL del webhook debe empezar por http:// o https://.", err_webhook_incomplete: "El webhook necesita una URL.",
+  err_invalid_authorization: "La cabecera Authorization no es válida.", err_alert_test_failed: "Falló la prueba: {reason}",
 } as const;

@@ -23,3 +23,5 @@ jobs:
       - run: npm run build
       # Arranca el servidor compilado sin Docker: comprueba que funciona en cada sistema operativo.
       - run: npm run smoke
+      - run: npm run e2e:alerts
+        if: runner.os == 'Linux'

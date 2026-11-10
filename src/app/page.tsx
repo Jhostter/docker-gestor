@@ -17,10 +17,12 @@ const Terminal = dynamic(() => import("./Terminal"), { ssr: false });
 const HistoryChart = dynamic(() => import("./HistoryChart"), { ssr: false });
 const CreateForm = dynamic(() => import("./CreateForm"), { ssr: false });
 const Logs = dynamic(() => import("./Logs"), { ssr: false });
+const AlertsView = dynamic(() => import("./Alerts"), { ssr: false });
+type AlertsPublic = import("./Alerts").AlertsPublic;
 
 const TABS = [
   { id: "containers", icon: "box" }, { id: "compose", icon: "layers" }, { id: "images", icon: "image" },
-  { id: "volumes", icon: "disk" }, { id: "networks", icon: "net" }, { id: "events", icon: "pulse" },
+  { id: "volumes", icon: "disk" }, { id: "networks", icon: "net" }, { id: "events", icon: "pulse" }, { id: "alerts", icon: "bell" },
 ] as const;
 type Tab = (typeof TABS)[number]["id"];
 const tabKey = (id: Tab) => `tab_${id}` as Key;
@@ -52,6 +54,8 @@ function App() {
   const [output, setOutput] = useState<{ title: string; text: string } | null>(null);
   const [search, setSearch] = useState("");
   const [dark, setDark] = useState(true);
+  const [alertsCfg, setAlertsCfg] = useState<AlertsPublic | null>(null);
+  const [alertsTick, setAlertsTick] = useState(0);
   const tabRef = useRef(tab);
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => { tabRef.current = tab; }, [tab]);
@@ -89,6 +93,26 @@ function App() {
     const load = () => { if (!document.hidden) api<Stat[]>("/api/stats").then((l) => setStats(Object.fromEntries(l.map((x) => [x.id, x])))).catch(() => {}); };
     load(); const i = setInterval(load, 10000); return () => clearInterval(i);
   }, [tab]);
+
+  /* ---- alerts: config for the browser channel; the stream is open only while it is enabled ---- */
+  const reloadAlerts = useCallback(async () => { try { setAlertsCfg(await api<AlertsPublic>("/api/alerts/config")); } catch { /* alerts are optional */ } }, []);
+  useEffect(() => { reloadAlerts(); }, [reloadAlerts]);
+  const browserAlerts = !!alertsCfg?.enabled && !!alertsCfg.channels.browser.enabled;
+  useEffect(() => {
+    if (!browserAlerts) return;
+    const es = new EventSource("/api/alerts/stream");
+    es.onmessage = (m) => {
+      const a = JSON.parse(m.data) as { rule: string; name: string; message: string };
+      toast("error", a.message);
+      if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.hidden) new Notification("Docker Gestor", { body: a.message, tag: `${a.rule}:${a.name}` });
+      setAlertsTick((n) => n + 1);
+    };
+    return () => es.close();
+  }, [browserAlerts, toast]);
+  // Messages sent by the server use the language chosen here
+  useEffect(() => {
+    if (alertsCfg && alertsCfg.lang !== lang) api("/api/alerts/config", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ lang }) }).then(reloadAlerts).catch(() => {});
+  }, [lang, alertsCfg, reloadAlerts]);
 
   useEffect(() => { setSearch(""); }, [tab]);
   useEffect(() => { setDark(document.documentElement.dataset.theme ? document.documentElement.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches); }, []);
@@ -164,6 +188,7 @@ function App() {
         {tab === "volumes" && <VolumesView {...{ volumes, busy, run, confirm, search, setSearch, searchRef }} />}
         {tab === "networks" && <NetworksView {...{ networks, busy, run, confirm }} />}
         {tab === "events" && <EventsView events={events} clear={() => setEvents([])} />}
+        {tab === "alerts" && <AlertsView cfg={alertsCfg} reload={reloadAlerts} refreshKey={alertsTick} />}
       </main>
 
       <div className="fixed bottom-3 left-3 flex gap-1 rounded-lg bg-surface p-1 shadow-lg ring-1 ring-line md:hidden"><Btn icon={dark ? "sun" : "moon"} label={t("theme_toggle")} onClick={toggleTheme} /><Btn label={t("lang_label")} onClick={toggleLang}>{lang.toUpperCase()}</Btn></div>
@@ -407,7 +432,7 @@ function EventsView({ events, clear }: { events: Ev[]; clear: () => void }) {
 /* ================= Help ================= */
 function HelpModal({ onClose }: { onClose: () => void }) {
   const { t } = useT();
-  const keys: [string, string][] = [["1 – 6", t("k_tabs")], ["/", t("k_search")], ["n", t("new_container")], ["r", t("k_refresh")], ["?", t("k_help")], ["Esc", t("k_esc")]];
+  const keys: [string, string][] = [[`1 – ${TABS.length}`, t("k_tabs")], ["/", t("k_search")], ["n", t("new_container")], ["r", t("k_refresh")], ["?", t("k_help")], ["Esc", t("k_esc")]];
   return (
     <Modal title={t("help_title")} onClose={onClose}>
       <dl className="mb-4 grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 text-sm">

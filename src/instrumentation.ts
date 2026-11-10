@@ -1,3 +1,6 @@
 export async function register() {
-  if (process.env.NEXT_RUNTIME === "nodejs") (await import("./lib/history")).startSampler();
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    (await import("./lib/history")).startSampler();
+    (await import("./lib/alerts")).startAlerts();
+  }
 }
