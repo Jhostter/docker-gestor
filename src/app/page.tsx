@@ -397,7 +397,7 @@ function HelpModal({ onClose }: { onClose: () => void }) {
       <dl className="mb-4 grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2 text-sm">
         {keys.map(([k, d]) => <div key={k} className="contents"><dt><kbd className="rounded border border-line bg-surface2 px-1.5 py-0.5 font-mono text-xs">{k}</kbd></dt><dd className="text-muted">{d}</dd></div>)}
       </dl>
-      <p className="text-sm text-muted">Guía completa: <code>docs/GUIA.md</code> en el proyecto (<code>~/docker-gestor</code>). Los atajos de una tecla no actúan mientras escribes en un campo o hay una ventana abierta.</p>
+      <p className="text-sm text-muted">Guía completa: <code>docs/GUIA.md</code> en el repositorio del proyecto. Los atajos de una tecla no actúan mientras escribes en un campo o hay una ventana abierta.</p>
     </Modal>
   );
 }

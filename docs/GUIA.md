@@ -27,7 +27,7 @@ Panel web local para gestionar Docker desde el navegador: contenedores, logs, te
 
 ## 1. Inicio rápido
 
-Si el servicio ya está instalado (lo está si seguiste `scripts/install-service.sh`), abre:
+Si ya instalaste el servicio (ver [sección 2](#2-instalación-y-servicio-systemd)), abre:
 
 **http://localhost:4455**
 
@@ -51,7 +51,8 @@ systemctl --user status docker-gestor
 ### Instalar como servicio
 
 ```bash
-cd ~/docker-gestor
+git clone https://github.com/Jhostter/docker-gestor.git
+cd docker-gestor
 npm install            # solo la primera vez
 ./scripts/install-service.sh
 ```
@@ -77,7 +78,7 @@ sudo loginctl enable-linger $USER       # si dice Linger=no
 | Ver logs del servicio | `journalctl --user -u docker-gestor -f` |
 | Desactivar el arranque automático | `systemctl --user disable docker-gestor` |
 
-> **Tras actualizar el código** hay que recompilar: `cd ~/docker-gestor && npm run build && systemctl --user restart docker-gestor`.
+> **Tras actualizar el código** hay que recompilar: `git pull && npm install && npm run build && systemctl --user restart docker-gestor` (desde la carpeta del proyecto).
 
 ## 3. Recorrido por la interfaz
 
@@ -341,9 +342,8 @@ systemctl --user disable --now docker-gestor
 rm ~/.config/systemd/user/docker-gestor.service
 systemctl --user daemon-reload
 
-# Opcional: borrar el historial y el proyecto
+# Opcional: borrar el historial (y luego la carpeta del proyecto, si quieres)
 rm -rf ~/.local/share/docker-gestor
-rm -rf ~/docker-gestor
 ```
 
 Esto no toca tus contenedores, imágenes, volúmenes ni redes.

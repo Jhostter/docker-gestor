@@ -1,11 +1,35 @@
 {
   "name": "docker-gestor",
   "version": "0.1.0",
-  "private": true,
+  "description": "Lightweight local web dashboard to manage Docker: containers, logs, terminal, Compose, images, volumes, networks, events and usage history.",
+  "license": "MIT",
+  "author": "Jhostter",
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jhostter/docker-gestor.git"
+  },
+  "homepage": "https://github.com/Jhostter/docker-gestor#readme",
+  "bugs": {
+    "url": "https://github.com/Jhostter/docker-gestor/issues"
+  },
+  "keywords": [
+    "docker",
+    "dashboard",
+    "containers",
+    "docker-compose",
+    "self-hosted",
+    "nextjs",
+    "devtools"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "dev": "node server.mjs",
     "build": "next build",
-    "start": "NODE_ENV=production node server.mjs"
+    "start": "NODE_ENV=production node server.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",
