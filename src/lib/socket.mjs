@@ -2,7 +2,7 @@
 // Sin dependencias y sin efectos al importar: `detectDocker` recibe todo lo que lee del entorno.
 import { existsSync } from "node:fs";
 import { homedir, platform as osPlatform } from "node:os";
-import { join } from "node:path";
+import { posix } from "node:path"; // las rutas de socket Unix son siempre POSIX, también si se evalúan desde Windows
 import { execFileSync } from "node:child_process";
 
 /** Convierte unix://, npipe://, tcp:// o una ruta en opciones de dockerode. */
@@ -40,10 +40,10 @@ export function detectDocker({
 
   const candidates = [
     "/var/run/docker.sock",
-    join(home, ".docker/run/docker.sock"),      // Docker Desktop (macOS/Linux)
-    join(home, ".colima/default/docker.sock"),  // Colima
-    join(home, ".rd/docker.sock"),              // Rancher Desktop
-    join(home, ".orbstack/run/docker.sock"),    // OrbStack
+    posix.join(home, ".docker/run/docker.sock"),      // Docker Desktop (macOS/Linux)
+    posix.join(home, ".colima/default/docker.sock"),  // Colima
+    posix.join(home, ".rd/docker.sock"),              // Rancher Desktop
+    posix.join(home, ".orbstack/run/docker.sock"),    // OrbStack
     uid != null ? `/run/user/${uid}/docker.sock` : null, // Docker rootless
   ].filter(Boolean);
   const found = candidates.find((p) => exists(p));
