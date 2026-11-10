@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { planLayers, parseDependsOn, validateBatch, BatchError, MAX_IDS } from "../src/lib/groups-core.mjs";
+import { planLayers, parseDependsOn, validateBatch, BatchError, MAX_IDS, validateGroupName, validateGroupOp, canonicalGroup, MAX_GROUP_NAME } from "../src/lib/groups-core.mjs";
 
 const c = (id, service, dependsOn) => ({ id, labels: service ? { "com.docker.compose.service": service, ...(dependsOn ? { "com.docker.compose.depends_on": dependsOn } : {}) } : {} });
 // web -> api -> (db, cache);  worker -> (db, cache)
@@ -72,4 +72,47 @@ test("validateBatch rejects anything unexpected", () => {
   assert.equal(code(null), "invalid_batch");
   assert.equal(code({ action: "stop", ids: Array.from({ length: MAX_IDS + 1 }, (_, i) => i.toString(16).padStart(12, "0")) }), "invalid_batch");
   assert.equal(code({ action: "stop", ids: ["NOTHEX123456"] }), "invalid_batch");
+});
+
+const code = (f) => { try { f(); } catch (e) { assert.ok(e instanceof BatchError); return e.code; } };
+
+test("validateGroupName trims, collapses spaces and enforces the limits", () => {
+  assert.equal(validateGroupName("  My   stack  "), "My stack");
+  assert.equal(validateGroupName("producción 🚀"), "producción 🚀");
+  assert.equal(code(() => validateGroupName("")), "invalid_group");
+  assert.equal(code(() => validateGroupName("   ")), "invalid_group");
+  assert.equal(code(() => validateGroupName("x".repeat(MAX_GROUP_NAME + 1))), "invalid_group");
+  assert.equal(validateGroupName("x".repeat(MAX_GROUP_NAME)).length, MAX_GROUP_NAME);
+  assert.equal(validateGroupName("a\nb\tc"), "a b c", "newlines and tabs are whitespace: normalised to one space");
+  assert.equal(code(() => validateGroupName("a\u0007b")), "invalid_group", "other control characters are rejected");
+  assert.equal(code(() => validateGroupName("a\u0000b")), "invalid_group");
+  assert.equal(code(() => validateGroupName(42)), "invalid_group");
+  assert.equal(code(() => validateGroupName(null)), "invalid_group");
+});
+
+test("validateGroupOp: assign, unassign, rename and dissolve", () => {
+  assert.deepEqual(validateGroupOp({ names: ["web", "web", "api-1"], group: " Frontend " }), { kind: "assign", names: ["web", "api-1"], group: "Frontend" });
+  assert.deepEqual(validateGroupOp({ names: ["web"], group: null }), { kind: "assign", names: ["web"], group: null });
+  assert.deepEqual(validateGroupOp({ rename: { from: "a", to: "b" } }), { kind: "rename", from: "a", to: "b" });
+  assert.deepEqual(validateGroupOp({ dissolve: "a" }), { kind: "dissolve", group: "a" });
+});
+
+test("validateGroupOp rejects anything ambiguous or unexpected", () => {
+  assert.equal(code(() => validateGroupOp({})), "invalid_group_op");
+  assert.equal(code(() => validateGroupOp(null)), "invalid_group_op");
+  assert.equal(code(() => validateGroupOp({ names: ["a"], group: "x", dissolve: "x" })), "invalid_group_op", "exactly one operation");
+  assert.equal(code(() => validateGroupOp({ names: [], group: "x" })), "invalid_group_op");
+  assert.equal(code(() => validateGroupOp({ names: ["../x"], group: "x" })), "invalid_group_op");
+  assert.equal(code(() => validateGroupOp({ names: ["-bad"], group: "x" })), "invalid_group_op", "a container name cannot start with a dash");
+  assert.equal(code(() => validateGroupOp({ names: "web", group: "x" })), "invalid_group_op");
+  assert.equal(code(() => validateGroupOp({ names: Array.from({ length: MAX_IDS + 1 }, (_, i) => "c" + i), group: "x" })), "invalid_group_op");
+  assert.equal(code(() => validateGroupOp({ names: ["web"], group: "" })), "invalid_group");
+  assert.equal(code(() => validateGroupOp({ rename: { from: "a" } })), "invalid_group");
+  assert.equal(code(() => validateGroupOp({ dissolve: 5 })), "invalid_group");
+});
+
+test("canonicalGroup: groups are case-insensitive and keep the existing spelling", () => {
+  assert.equal(canonicalGroup("frontend", ["Frontend", "Data"]), "Frontend");
+  assert.equal(canonicalGroup("DATA", new Set(["Frontend", "Data"])), "Data");
+  assert.equal(canonicalGroup("New", ["Frontend"]), "New");
 });

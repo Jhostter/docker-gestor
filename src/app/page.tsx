@@ -52,6 +52,8 @@ function App() {
   const [term, setTerm] = useState<Container | null>(null);
   const [chart, setChart] = useState<Container | null>(null);
   const [detail, setDetail] = useState<Container | null>(null);
+  const [assignments, setAssignments] = useState<Record<string, string>>({});
+  const [customGroups, setCustomGroups] = useState<{ name: string; count: number }[]>([]);
   const [batchFailed, setBatchFailed] = useState<{ id: string; name: string; error?: string }[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [help, setHelp] = useState(false);
@@ -160,6 +162,9 @@ function App() {
       run(c.id, () => post(`/api/containers/${c.id}/remove`), t("del_done", { name: c.name }));
   };
 
+  const reloadGroups = useCallback(async () => { try { const r = await api<{ assignments: Record<string, string>; groups: { name: string; count: number }[] }>("/api/groups"); setAssignments(r.assignments); setCustomGroups(r.groups); } catch { /* groups are optional */ } }, []);
+  useEffect(() => { reloadGroups(); }, [reloadGroups]);
+
   /** Start / stop / restart / delete several containers (a stack, a group or a selection). Returns false if the user cancelled. */
   const batch = async (action: BatchAction, cs: Container[], key: string) => {
     if (!cs.length) return false;
@@ -206,7 +211,7 @@ function App() {
 
       <main className="min-w-0 flex-1 p-4 pb-20 md:p-6">
         {online === false && <div role="alert" className="mb-4 rounded-lg border border-bad/40 bg-bad/10 p-3 text-sm text-bad">{t("lost_banner")} <code>systemctl --user status docker-gestor</code>.</div>}
-        {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail, running }} />}
+        {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail, running, assignments, customGroups, reloadGroups }} />}
         {tab === "compose" && <ComposeView {...{ stacks, busy, run, confirm, setOutput, goTo: (name: string) => { setTab("containers"); setTimeout(() => setSearch(name), 0); } }} />}
         {tab === "images" && <ImagesView {...{ images, containers, busy, run, confirm, search, setSearch, searchRef }} />}
         {tab === "volumes" && <VolumesView {...{ volumes, busy, run, confirm, search, setSearch, searchRef }} />}
@@ -236,14 +241,20 @@ type BatchAction = "start" | "stop" | "restart" | "remove";
 type CV = {
   containers: Container[] | null; stats: Record<string, Stat>; busy: Set<string>; search: string; setSearch: (s: string) => void; searchRef: React.Ref<HTMLInputElement>; running: number;
   ctl: (c: Container, a: "start" | "stop" | "restart") => void; del: (c: Container) => void; openCreate: () => void; batch: (a: BatchAction, cs: Container[], key: string) => Promise<boolean>;
+  assignments: Record<string, string>; customGroups: { name: string; count: number }[]; reloadGroups: () => Promise<void>;
   setLogs: (c: Container) => void; setTerm: (c: Container) => void; setChart: (c: Container) => void; setDetail: (c: Container) => void;
 };
 const loadCollapsed = (): Set<string> => { try { return new Set(JSON.parse(localStorage.getItem("collapsedGroups") ?? "[]")); } catch { return new Set(); } };
 
-function ContainersView({ containers, stats, busy, search, setSearch, searchRef, running, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail }: CV) {
+function ContainersView({ containers, stats, busy, search, setSearch, searchRef, running, ctl, del, openCreate, batch, assignments, customGroups, reloadGroups, setLogs, setTerm, setChart, setDetail }: CV) {
   const { t } = useT();
+  const { toast, confirm, prompt } = useUI();
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
-  const [group, setGroup] = useState(true);
+  const [mode, setModeState] = useState<"stack" | "custom" | "none">("stack");
+  const [moving, setMoving] = useState(false);
+  const group = mode !== "none";
+  const setMode = (m: "stack" | "custom" | "none") => { setModeState(m); try { localStorage.setItem("groupMode", m); } catch {} };
+  useEffect(() => { try { const m = localStorage.getItem("groupMode"); if (m === "stack" || m === "custom" || m === "none") setModeState(m); } catch {} }, []);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   useEffect(() => { setCollapsed(loadCollapsed()); }, []);
@@ -257,9 +268,9 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
   const groups = useMemo(() => {
     if (!group) return [["", list] as const];
     const m = new Map<string, Container[]>();
-    for (const c of list) { const k = c.project ?? ""; m.set(k, [...(m.get(k) ?? []), c]); }
+    for (const c of list) { const k = (mode === "custom" ? assignments[c.name] : c.project) ?? ""; m.set(k, [...(m.get(k) ?? []), c]); }
     return [...m.entries()].sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
-  }, [list, group]);
+  }, [list, group, mode, assignments]);
 
   const picked = all.filter((c) => selected.has(c.id)); // only containers that still exist
   const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -278,27 +289,37 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
         <input type="checkbox" aria-label={t("grp_select_all")} title={t("grp_select_all")} checked={list.length > 0 && list.every((c) => selected.has(c.id))} onChange={(e) => setMany(list, e.target.checked)} ref={(el) => { if (el) el.indeterminate = list.some((c) => selected.has(c.id)) && !list.every((c) => selected.has(c.id)); }} />
         <SearchBox value={search} onChange={setSearch} placeholder={t("search")} inputRef={searchRef} />
         <Chips value={filter} onChange={setFilter} options={[{ id: "all", label: t("f_all"), count: all.length }, { id: "up", label: t("f_up"), count: running }, { id: "down", label: t("f_down"), count: all.length - running }]} />
-        <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted"><input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} />{t("group_by")}</label>
+        <div className="flex items-center gap-1.5 text-xs text-muted"><span>{t("group_by")}</span><Chips value={mode} onChange={setMode} options={[{ id: "stack", label: t("grp_m_stack") }, { id: "custom", label: t("grp_m_custom") }, { id: "none", label: t("grp_m_none") }]} /></div>
         <div className="ml-auto"><Btn kind="primary" icon="plus" onClick={openCreate}>{t("new_container")}</Btn></div>
       </div>
+      {mode === "custom" && customGroups.length === 0 && all.length > 0 && <p className="rounded-lg border border-dashed border-line px-4 py-3 text-sm text-muted">{t("grp_custom_empty")}</p>}
       {containers === null ? <Loading label={t("loading")} />
         : list.length === 0 ? <Empty icon="box" title={all.length ? t("empty_nomatch") : t("empty_none")} hint={all.length ? t("empty_nomatch_hint") : t("empty_none_hint")} />
         : groups.map(([name, items]) => {
-          const up = items.filter((c) => c.state === "running"), key = name || "\u0000", folded = group && collapsed.has(key), all_ = items.every((c) => selected.has(c.id)), some = items.some((c) => selected.has(c.id));
-          const gcpu = items.reduce((a, c) => a + (stats[c.id]?.cpu ?? 0), 0), gmem = items.reduce((a, c) => a + (stats[c.id]?.mem ?? 0), 0), gb = busy.has(`group:${key}`);
+          const up = items.filter((c) => c.state === "running"), key = (mode === "custom" ? "c:" : "s:") + (name || "\u0000"), folded = group && collapsed.has(key), all_ = items.every((c) => selected.has(c.id)), some = items.some((c) => selected.has(c.id));
+          const label = name || (mode === "custom" ? t("grp_ungrouped") : t("no_stack")), gcpu = items.reduce((a, c) => a + (stats[c.id]?.cpu ?? 0), 0), gmem = items.reduce((a, c) => a + (stats[c.id]?.mem ?? 0), 0), gb = busy.has(`group:${key}`);
           return (
             <div key={name}>
               {group && (
                 <div className="mb-1.5 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <input type="checkbox" aria-label={`${t("grp_select")}: ${name || t("no_stack")}`} checked={all_} onChange={(e) => setMany(items, e.target.checked)} ref={(el) => { if (el) el.indeterminate = some && !all_; }} />
+                  <input type="checkbox" aria-label={`${t("grp_select")}: ${label}`} checked={all_} onChange={(e) => setMany(items, e.target.checked)} ref={(el) => { if (el) el.indeterminate = some && !all_; }} />
                   <button onClick={() => toggleCollapsed(key)} aria-expanded={!folded} title={folded ? t("grp_expand") : t("grp_collapse")} className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted hover:text-fg">
-                    <Icon name="down" className={`size-3.5 transition-transform ${folded ? "-rotate-90" : ""}`} /><Icon name="layers" className="size-3.5" />{name || t("no_stack")}<span className="font-normal normal-case">({items.length})</span>
+                    <Icon name="down" className={`size-3.5 transition-transform ${folded ? "-rotate-90" : ""}`} /><Icon name="layers" className="size-3.5" />{label}<span className="font-normal normal-case">({items.length})</span>
                   </button>
                   <span className="text-xs text-muted">{t("grp_summary", { running: up.length, total: items.length })}{live.length > 0 && ` · ${gcpu.toFixed(1)}% · ${bytes(gmem)}`}</span>
                   <div className="ml-auto flex gap-0.5">
-                    <Btn kind="ghost" icon="play" label={`${t("grp_start")}: ${name || t("no_stack")}`} busy={gb} disabled={up.length === items.length} onClick={() => act("start", items.filter((c) => c.state !== "running"), `group:${key}`)} />
-                    <Btn kind="ghost" icon="stop" label={`${t("grp_stop")}: ${name || t("no_stack")}`} disabled={gb || up.length === 0} onClick={() => act("stop", up, `group:${key}`)} />
-                    <Btn kind="ghost" icon="restart" label={`${t("grp_restart")}: ${name || t("no_stack")}`} disabled={gb} onClick={() => act("restart", items, `group:${key}`)} />
+                    <Btn kind="ghost" icon="play" label={`${t("grp_start")}: ${label}`} busy={gb} disabled={up.length === items.length} onClick={() => act("start", items.filter((c) => c.state !== "running"), `group:${key}`)} />
+                    <Btn kind="ghost" icon="stop" label={`${t("grp_stop")}: ${label}`} disabled={gb || up.length === 0} onClick={() => act("stop", up, `group:${key}`)} />
+                    <Btn kind="ghost" icon="restart" label={`${t("grp_restart")}: ${label}`} disabled={gb} onClick={() => act("restart", items, `group:${key}`)} />
+                    {mode === "custom" && name && <>
+                      <Btn kind="ghost" icon="edit" label={`${t("grp_rename")}: ${name}`} onClick={async () => {
+                        const to = await prompt({ title: t("grp_rename_title", { name }), label: t("grp_name"), value: name, confirm: t("grp_rename") });
+                        if (to && to !== name) { try { await api("/api/groups", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ rename: { from: name, to } }) }); toast("ok", t("grp_saved")); await reloadGroups(); } catch (e) { toast("error", (e as Error).message); } }
+                      }} />
+                      <Btn kind="ghost" icon="x" label={`${t("grp_dissolve")}: ${name}`} onClick={async () => {
+                        if (await confirm({ title: t("grp_dissolve_title", { name }), body: t("grp_dissolve_body"), confirm: t("grp_dissolve") })) { try { await api("/api/groups", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ dissolve: name }) }); toast("ok", t("grp_saved")); await reloadGroups(); } catch (e) { toast("error", (e as Error).message); } }
+                      }} />
+                    </>}
                   </div>
                 </div>
               )}
@@ -318,12 +339,43 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
             <Btn icon="play" busy={busy.has("bulk")} onClick={() => act("start", picked.filter((c) => c.state !== "running"), "bulk")} disabled={picked.every((c) => c.state === "running")}>{t("act_start")}</Btn>
             <Btn icon="stop" disabled={busy.has("bulk") || !picked.some((c) => c.state === "running")} onClick={() => act("stop", picked.filter((c) => c.state === "running"), "bulk")}>{t("act_stop")}</Btn>
             <Btn icon="restart" disabled={busy.has("bulk")} onClick={() => act("restart", picked, "bulk")}>{t("act_restart")}</Btn>
+            <Btn icon="layers" onClick={() => setMoving(true)}>{t("grp_move")}</Btn>
             <Btn kind="danger" icon="trash" disabled={busy.has("bulk")} onClick={() => act("remove", picked, "bulk")}>{t("delete")}</Btn>
             <Btn kind="ghost" onClick={() => setSelected(new Set())}>{t("bulk_clear")}</Btn>
           </div>
         </div>
       )}
+      {moving && <MoveDialog names={picked.map((c) => c.name)} groups={customGroups} current={picked.map((c) => assignments[c.name]).filter(Boolean)} onClose={() => setMoving(false)}
+        onDone={async () => { setMoving(false); setSelected(new Set()); setMode("custom"); await reloadGroups(); toast("ok", t("grp_saved")); }} />}
     </section>
+  );
+}
+
+function MoveDialog({ names, groups, current, onClose, onDone }: { names: string[]; groups: { name: string; count: number }[]; current: string[]; onClose: () => void; onDone: () => void }) {
+  const { t } = useT();
+  const { toast } = useUI();
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const send = async (group: string | null) => {
+    setBusy(true);
+    try { await api("/api/groups", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ names, group }) }); onDone(); }
+    catch (e) { toast("error", (e as Error).message); setBusy(false); }
+  };
+  return (
+    <Modal title={t("grp_move_title", { n: names.length })} onClose={onClose}>
+      <form onSubmit={(e) => { e.preventDefault(); if (name.trim()) send(name.trim()); }}>
+        <label className="block text-sm font-medium">{t("grp_name")}
+          <input list="custom-groups" autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder={groups[0]?.name ?? "frontend"} className="mt-1 w-full rounded-md border border-line bg-bg px-3 py-2 text-sm font-normal" />
+          <datalist id="custom-groups">{groups.map((g) => <option key={g.name} value={g.name} />)}</datalist>
+        </label>
+        <p className="mt-1 text-xs text-muted">{t("grp_move_hint")}</p>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          {current.length > 0 && <Btn kind="ghost" disabled={busy} onClick={() => send(null)}>{t("grp_remove_from")}</Btn>}
+          <Btn onClick={onClose} disabled={busy}>{t("cancel")}</Btn>
+          <Btn type="submit" kind="primary" busy={busy} disabled={!name.trim()}>{t("grp_move_btn")}</Btn>
+        </div>
+      </form>
+    </Modal>
   );
 }
 

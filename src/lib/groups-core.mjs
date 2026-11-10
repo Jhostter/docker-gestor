@@ -46,3 +46,42 @@ export function planLayers(containers, action) {
   }
   return action === "stop" || action === "remove" ? layers.reverse() : layers;
 }
+
+/* ---------- custom groups ---------- */
+export const MAX_GROUPS = 50;
+export const MAX_GROUP_NAME = 40;
+const CONTAINER_NAME = /^[A-Za-z0-9][\w.-]{0,254}$/;
+// eslint-disable-next-line no-control-regex
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
+/** Trims and validates a group name (1-40 characters, no control characters). Throws BatchError("invalid_group"). */
+export function validateGroupName(name) {
+  if (typeof name !== "string") throw new BatchError("invalid_group");
+  const n = name.trim().replace(/\s+/g, " ");
+  if (!n || n.length > MAX_GROUP_NAME || CONTROL.test(n)) throw new BatchError("invalid_group");
+  return n;
+}
+
+/**
+ * One operation on custom groups. Exactly one of:
+ *   { names: [containerName...], group: "name" | null }   assign (null removes them from their group)
+ *   { rename: { from, to } }
+ *   { dissolve: "name" }
+ */
+export function validateGroupOp(body) {
+  const b = body ?? {};
+  const kinds = ["names", "rename", "dissolve"].filter((k) => b[k] !== undefined);
+  if (kinds.length !== 1) throw new BatchError("invalid_group_op");
+  if (kinds[0] === "names") {
+    if (!Array.isArray(b.names) || !b.names.length || b.names.length > MAX_IDS || !b.names.every((x) => typeof x === "string" && CONTAINER_NAME.test(x))) throw new BatchError("invalid_group_op");
+    return { kind: "assign", names: [...new Set(b.names)], group: b.group === null ? null : validateGroupName(b.group) };
+  }
+  if (kinds[0] === "rename") return { kind: "rename", from: validateGroupName(b.rename?.from), to: validateGroupName(b.rename?.to) };
+  return { kind: "dissolve", group: validateGroupName(b.dissolve) };
+}
+
+/** Case-insensitive lookup so "Frontend" and "frontend" are the same group; returns the existing spelling or the given name. */
+export function canonicalGroup(name, existing) {
+  const hit = [...existing].find((g) => g.toLowerCase() === name.toLowerCase());
+  return hit ?? name;
+}

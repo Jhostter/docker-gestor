@@ -8,7 +8,7 @@ export const es = {
   theme_light: "Tema claro", theme_dark: "Tema oscuro", theme_toggle: "Cambiar tema", help_label: "Ayuda y atajos (?)", lang_label: "Cambiar idioma",
   // Contenedores
   stat_running: "En marcha", stat_of: "de {n} contenedores", stat_cpu: "CPU total", stat_active: "contenedores activos", stat_mem: "Memoria", stat_in_use: "en uso", stat_stacks: "Stacks", stat_compose: "de Compose",
-  search: "Buscar ( / )", f_all: "Todos", f_up: "Activos", f_down: "Detenidos", group_by: "Agrupar por stack", new_container: "Nuevo contenedor", no_stack: "Sin stack",
+  search: "Buscar ( / )", f_all: "Todos", f_up: "Activos", f_down: "Detenidos", group_by: "Agrupar por", new_container: "Nuevo contenedor", no_stack: "Sin stack",
   empty_none: "Aún no hay contenedores", empty_nomatch: "Ningún contenedor coincide", empty_none_hint: "Crea el primero con «Nuevo contenedor» o con docker compose.", empty_nomatch_hint: "Prueba con otro filtro o búsqueda.",
   badge_running: "En marcha", badge_stopped: "Detenido", open_url: "Abrir http://localhost:{port}", cpu: "CPU", ram: "RAM", cpu_use: "Uso de CPU", mem_use: "Uso de memoria",
   act_stop: "Detener", act_start: "Iniciar", act_restart: "Reiniciar", act_logs: "Ver logs", act_term: "Abrir terminal", act_chart: "Gráfica de consumo",
@@ -115,4 +115,10 @@ export const es = {
   grp_c_stop: "Detener {n} contenedor|Detener {n} contenedores", grp_c_restart: "Reiniciar {n} contenedor|Reiniciar {n} contenedores", grp_c_remove: "Eliminar {n} contenedor|Eliminar {n} contenedores",
   grp_c_order: "Se hará por capas, siguiendo las dependencias de Compose cuando existen:", grp_c_remove_body: "Se eliminarán aunque estén en marcha; los volúmenes con nombre se conservan.",
   grp_done: "{n} contenedor correcto|{n} contenedores correctos", grp_done_part: "{ok} correctos, {failed} con error", grp_failed_title: "Contenedores con error",
+  // Grupos personalizados
+  grp_m_stack: "Stack", grp_m_custom: "Mis grupos", grp_m_none: "Nada", grp_ungrouped: "Sin grupo", grp_name: "Nombre del grupo",
+  grp_move: "Mover a grupo…", grp_move_title: "Mover {n} contenedor a un grupo|Mover {n} contenedores a un grupo", grp_move_hint: "Elige un grupo existente o escribe un nombre nuevo.", grp_move_btn: "Mover", grp_remove_from: "Quitar del grupo",
+  grp_rename: "Renombrar", grp_rename_title: "Renombrar «{name}»", grp_dissolve: "Disolver", grp_dissolve_title: "Disolver «{name}»", grp_dissolve_body: "Los contenedores no se tocan: solo dejan de pertenecer al grupo.",
+  grp_saved: "Grupos actualizados", grp_custom_empty: "Aún no tienes grupos: selecciona contenedores y usa «Mover a grupo…».",
+  err_invalid_group: "El nombre del grupo no es válido (de 1 a 40 caracteres).", err_too_many_groups: "Hay demasiados grupos (máximo 50).", err_no_such_group: "Ese grupo no existe.", err_invalid_group_op: "La operación sobre el grupo no es válida.",
 } as const;

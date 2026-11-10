@@ -10,7 +10,7 @@ export const en: Record<keyof typeof es, string> = {
   theme_light: "Light theme", theme_dark: "Dark theme", theme_toggle: "Toggle theme", help_label: "Help and shortcuts (?)", lang_label: "Change language",
   // Containers
   stat_running: "Running", stat_of: "of {n} containers", stat_cpu: "Total CPU", stat_active: "active containers", stat_mem: "Memory", stat_in_use: "in use", stat_stacks: "Stacks", stat_compose: "from Compose",
-  search: "Search ( / )", f_all: "All", f_up: "Running", f_down: "Stopped", group_by: "Group by stack", new_container: "New container", no_stack: "No stack",
+  search: "Search ( / )", f_all: "All", f_up: "Running", f_down: "Stopped", group_by: "Group by", new_container: "New container", no_stack: "No stack",
   empty_none: "No containers yet", empty_nomatch: "No container matches", empty_none_hint: "Create the first one with “New container” or with docker compose.", empty_nomatch_hint: "Try another filter or search.",
   badge_running: "Running", badge_stopped: "Stopped", open_url: "Open http://localhost:{port}", cpu: "CPU", ram: "RAM", cpu_use: "CPU usage", mem_use: "Memory usage",
   act_stop: "Stop", act_start: "Start", act_restart: "Restart", act_logs: "View logs", act_term: "Open terminal", act_chart: "Usage chart",
@@ -117,4 +117,10 @@ export const en: Record<keyof typeof es, string> = {
   grp_c_stop: "Stop {n} container|Stop {n} containers", grp_c_restart: "Restart {n} container|Restart {n} containers", grp_c_remove: "Delete {n} container|Delete {n} containers",
   grp_c_order: "It runs in layers, following Compose's dependencies when they exist:", grp_c_remove_body: "They will be deleted even if running; named volumes are kept.",
   grp_done: "{n} container done|{n} containers done", grp_done_part: "{ok} done, {failed} failed", grp_failed_title: "Containers that failed",
+  // Custom groups
+  grp_m_stack: "Stack", grp_m_custom: "My groups", grp_m_none: "None", grp_ungrouped: "Ungrouped", grp_name: "Group name",
+  grp_move: "Move to group…", grp_move_title: "Move {n} container to a group|Move {n} containers to a group", grp_move_hint: "Pick an existing group or type a new name.", grp_move_btn: "Move", grp_remove_from: "Remove from group",
+  grp_rename: "Rename", grp_rename_title: "Rename “{name}”", grp_dissolve: "Dissolve", grp_dissolve_title: "Dissolve “{name}”", grp_dissolve_body: "The containers are left alone: they just stop belonging to the group.",
+  grp_saved: "Groups updated", grp_custom_empty: "No groups yet: select containers and use “Move to group…”.",
+  err_invalid_group: "The group name is not valid (1 to 40 characters).", err_too_many_groups: "Too many groups (maximum 50).", err_no_such_group: "That group does not exist.", err_invalid_group_op: "The group operation is not valid.",
 };

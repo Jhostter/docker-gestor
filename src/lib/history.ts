@@ -10,7 +10,7 @@ const RETENTION_MS = Number(process.env.RETENTION_DAYS ?? 7) * 864e5;
 const g = globalThis as unknown as { __db?: DatabaseSync; __timer?: NodeJS.Timeout; __pruned?: number; __hooks?: ((s: Snap[]) => void)[] };
 const ALERT_RETENTION_MS = 30 * 864e5;
 
-function db(): DatabaseSync {
+export function db(): DatabaseSync {
   if (g.__db) return g.__db;
   const dir = dataDir();
   mkdirSync(dir, { recursive: true });
@@ -19,7 +19,9 @@ function db(): DatabaseSync {
     CREATE TABLE IF NOT EXISTS samples (ts INTEGER NOT NULL, name TEXT NOT NULL, cpu REAL NOT NULL, mem INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS samples_name_ts ON samples(name, ts);
     CREATE TABLE IF NOT EXISTS alerts (ts INTEGER NOT NULL, rule TEXT NOT NULL, name TEXT NOT NULL, message TEXT NOT NULL);
-    CREATE INDEX IF NOT EXISTS alerts_ts ON alerts(ts);`);
+    CREATE INDEX IF NOT EXISTS alerts_ts ON alerts(ts);
+    CREATE TABLE IF NOT EXISTS container_groups (name TEXT PRIMARY KEY, grp TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS container_groups_grp ON container_groups(grp);`);
   return (g.__db = d);
 }
 

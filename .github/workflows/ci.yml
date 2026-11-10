@@ -31,3 +31,5 @@ jobs:
         if: runner.os == 'Linux'
       - run: npm run e2e:groups
         if: runner.os == 'Linux'
+      - run: npm run e2e:custom-groups
+        if: runner.os == 'Linux'

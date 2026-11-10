@@ -27,6 +27,7 @@ const P: Record<string, string> = {
   link: "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1",
   download: "M12 4v12m0 0 4-4m-4 4-4-4M5 20h14",
   down: "M6 9l6 6 6-6",
+  edit: "M4 20h4L19 9l-4-4L4 16v4Zm9-13 4 4",
   info: "M12 8h.01M11 12h1v4h1M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z",
   gauge: "M12 14l4-4M3.34 17a10 10 0 1 1 17.32 0",
   bell: "M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
@@ -143,13 +144,16 @@ export function Modal({ title, onClose, children, wide, full, actions, noEsc }: 
 /* ---------- Toasts and confirmations ---------- */
 type Toast = { id: number; kind: "ok" | "error" | "info"; text: string };
 type ConfirmOpts = { title: string; body?: string; confirm?: string; danger?: boolean };
-const Ctx = createContext<{ toast: (kind: Toast["kind"], text: string) => void; confirm: (o: ConfirmOpts) => Promise<boolean> } | null>(null);
+type PromptOpts = { title: string; label: string; value?: string; confirm?: string };
+const Ctx = createContext<{ toast: (kind: Toast["kind"], text: string) => void; confirm: (o: ConfirmOpts) => Promise<boolean>; prompt: (o: PromptOpts) => Promise<string | null> } | null>(null);
 export const useUI = () => useContext(Ctx)!;
 
 export function UIProvider({ children }: { children: React.ReactNode }) {
   const { t } = useT();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [ask, setAsk] = useState<(ConfirmOpts & { done: (v: boolean) => void }) | null>(null);
+  const [ask2, setAsk2] = useState<(PromptOpts & { done: (v: string | null) => void }) | null>(null);
+  const [typed, setTyped] = useState("");
   const seq = useRef(0);
   const toast = useCallback((kind: Toast["kind"], text: string) => {
     const id = ++seq.current;
@@ -157,9 +161,11 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === "error" ? 9000 : 3500);
   }, []);
   const confirm = useCallback((o: ConfirmOpts) => new Promise<boolean>((done) => setAsk({ ...o, done })), []);
+  const prompt = useCallback((o: PromptOpts) => new Promise<string | null>((done) => { setTyped(o.value ?? ""); setAsk2({ ...o, done }); }), []);
   const close = (v: boolean) => { ask?.done(v); setAsk(null); };
+  const closePrompt = (v: string | null) => { ask2?.done(v); setAsk2(null); };
   return (
-    <Ctx.Provider value={{ toast, confirm }}>
+    <Ctx.Provider value={{ toast, confirm, prompt }}>
       {children}
       <div className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2" aria-live="polite">
         {toasts.map((toastItem) => (
@@ -170,6 +176,16 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
           </div>
         ))}
       </div>
+      {ask2 && (
+        <Modal title={ask2.title} onClose={() => closePrompt(null)}>
+          <form onSubmit={(e) => { e.preventDefault(); if (typed.trim()) closePrompt(typed.trim()); }}>
+            <label className="block text-sm font-medium">{ask2.label}
+              <input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} maxLength={80} className="mt-1 w-full rounded-md border border-line bg-bg px-3 py-2 text-sm font-normal" />
+            </label>
+            <div className="mt-4 flex justify-end gap-2"><Btn onClick={() => closePrompt(null)}>{t("cancel")}</Btn><Btn type="submit" kind="primary" disabled={!typed.trim()}>{ask2.confirm ?? t("accept")}</Btn></div>
+          </form>
+        </Modal>
+      )}
       {ask && (
         <Modal title={ask.title} onClose={() => close(false)}>
           {ask.body && <p className="mb-4 text-sm text-muted">{ask.body}</p>}
