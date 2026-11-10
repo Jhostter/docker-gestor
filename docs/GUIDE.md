@@ -143,6 +143,22 @@ An interactive shell inside the container (`bash` if present, otherwise `sh`), w
 
 CPU (%) and memory over **1 h**, **24 h** or **7 days**. Hover (or touch) the chart to read the exact value and time. Right after the service or the container starts you will see “Not enough data yet”: one sample is taken every 15 s.
 
+### Groups (stacks) and selection
+
+Containers are grouped by Compose stack (switch it off with *Group by stack*). Each group header gives you:
+
+- **How the group is doing:** `5/5 running` and its combined CPU and memory.
+- **▶ ■ ⟳ for the whole group:** start all, stop all, restart all. They work on the **containers themselves**, so they also work for groups Compose cannot manage (stacks created by other tools such as Supabase CLI, or containers that belong to no stack).
+- **A checkbox** to select the whole group, and a **▾ chevron** to collapse it (remembered between visits).
+
+**Order matters.** When Compose declares dependencies (`depends_on`), Docker Gestor follows them: it **starts** the database and cache first, then the API, then the web server, and **stops** in the reverse order. Containers in the same layer run in parallel, so a big stack is still fast. Without dependency information (or for containers outside Compose) everything runs at once. Restart follows the start order.
+
+**Select any containers** with the checkboxes on each row (or the one next to the search box for everything visible). A bar appears with **Start**, **Stop**, **Restart** and **Delete** for the selection, even across different groups.
+
+**Safety:** stopping, restarting and deleting several containers always asks first and lists their names; deleting also removes running containers but never their named volumes. Starting needs no confirmation. Acting on something already in the wanted state is not an error (a running container is simply skipped), and if one container fails the others still go ahead; failures are listed with Docker's reason. Group actions apply to the containers currently visible in that group, so a filter (e.g. *Stopped*) narrows what *Start all* does.
+
+> The **Compose** section is still the place for `up`, `down` and `pull`, which need the stack's `docker-compose.yml`.
+
 ### Container details
 
 Click a container's name, or the ⓘ button, to open its details. It replaces having to run `docker inspect` by hand:
@@ -451,6 +467,7 @@ src/lib/socket.mjs            Docker endpoint detection (Linux / macOS / Windows
 src/lib/history.ts            Sampling and SQLite queries
 src/lib/alerts-core.mjs       Alert rules and config validation (pure, unit-tested)
 src/lib/alerts.ts             Alert I/O: Docker watcher, Telegram, webhook, storage
+src/lib/groups-core.mjs        Group actions: validation and dependency ordering (pure, unit-tested)
 src/lib/inspect-core.mjs       Container details shaping and secret masking (pure, unit-tested)
 src/lib/disk-core.mjs         Disk usage analysis and cleanup validation (pure, unit-tested)
 src/lib/disk.ts               Disk report and per-item cleanup
@@ -467,6 +484,7 @@ src/app/api/**                REST API and SSE streams
 |---|---|---|
 | `/containers` | GET, POST | List / create and start |
 | `/containers/:id/:action` | POST | `start`, `stop`, `restart`, `remove` |
+| `/containers/batch` | POST | Start / stop / restart / remove several containers, in dependency order when Compose provides it |
 | `/containers/:id/logs` | GET (SSE) | Live logs |
 | `/containers/:id/inspect` | GET | Container details; sensitive-looking values are omitted |
 | `/containers/:id/env?name=` | GET | The real value of ONE environment variable (explicit "show"; not cacheable) |
@@ -492,7 +510,7 @@ Connection errors answer `503` with a `code` (`docker_unreachable`, `docker_deni
 ```bash
 systemctl --user stop docker-gestor     # frees port 4455
 npm run dev                             # hot reload
-npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail
+npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups
 ```
 
 No Docker at hand? Run the fake API: `node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &` then `DOCKER_SOCKET=/tmp/docker-mock.sock npm run dev`.

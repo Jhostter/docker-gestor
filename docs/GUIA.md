@@ -150,6 +150,22 @@ Abre una shell interactiva dentro del contenedor (`bash` si existe, si no `sh`),
 
 Muestra CPU (%) y memoria con rangos de **1 h**, **24 h** y **7 días**. Pasa el ratón (o el dedo) sobre la gráfica para ver el valor exacto y la hora de cada punto. Si acabas de arrancar el servicio o el contenedor, verás «Aún no hay suficientes datos»: se toma una muestra cada 15 s.
 
+### Grupos (stacks) y selección
+
+Los contenedores se agrupan por stack de Compose (se desactiva con *Agrupar por stack*). La cabecera de cada grupo te da:
+
+- **Cómo va el grupo:** `5/5 en marcha` y su CPU y memoria combinadas.
+- **▶ ■ ⟳ para todo el grupo:** iniciar todos, detener todos, reiniciar todos. Actúan sobre los **contenedores mismos**, así que también sirven para grupos que Compose no puede gestionar (stacks creados con otras herramientas como Supabase CLI, o contenedores que no pertenecen a ningún stack).
+- **Una casilla** para seleccionar todo el grupo y una **flecha ▾** para plegarlo (se recuerda entre visitas).
+
+**El orden importa.** Cuando Compose declara dependencias (`depends_on`), Docker Gestor las respeta: **inicia** primero la base de datos y la caché, luego la API y luego el servidor web, y **detiene** en el orden inverso. Los contenedores de una misma capa se ejecutan en paralelo, así que un stack grande sigue siendo rápido. Sin información de dependencias (o fuera de Compose) todo se ejecuta a la vez. Reiniciar sigue el orden de inicio.
+
+**Selecciona los contenedores que quieras** con la casilla de cada fila (o la que está junto al buscador, para todo lo visible). Aparece una barra con **Iniciar**, **Detener**, **Reiniciar** y **Eliminar** para la selección, aunque sea de grupos distintos.
+
+**Seguridad:** detener, reiniciar y eliminar varios contenedores siempre pregunta antes y lista sus nombres; eliminar también quita los que están en marcha pero nunca sus volúmenes con nombre. Iniciar no pide confirmación. Actuar sobre algo que ya está en el estado deseado no es un error (un contenedor en marcha simplemente se omite), y si uno falla los demás siguen adelante; los fallos se listan con el motivo de Docker. Las acciones de grupo se aplican a los contenedores visibles en ese grupo, así que un filtro (p. ej. *Detenidos*) acota lo que hace *Iniciar todos*.
+
+> La sección **Compose** sigue siendo el lugar para `up`, `down` y `pull`, que necesitan el `docker-compose.yml` del stack.
+
 ### Detalles del contenedor
 
 Haz clic en el nombre de un contenedor, o en el botón ⓘ, para abrir sus detalles. Sustituye a ejecutar `docker inspect` a mano:
@@ -479,6 +495,7 @@ src/lib/docker.ts             Cliente de Docker, validación de Host/Origin, uti
 src/lib/history.ts            Muestreo y consultas SQLite
 src/lib/alerts-core.mjs       Reglas de alertas y validación (puro, con pruebas)
 src/lib/alerts.ts             E/S de alertas: vigilancia de Docker, Telegram, webhook, almacenamiento
+src/lib/groups-core.mjs        Acciones de grupo: validación y orden por dependencias (puro, con pruebas)
 src/lib/inspect-core.mjs       Detalles del contenedor y enmascarado de secretos (puro, con pruebas)
 src/lib/disk-core.mjs         Análisis de uso de disco y validación de limpieza (puro, con pruebas)
 src/lib/disk.ts               Informe de disco y limpieza elemento a elemento
@@ -496,6 +513,7 @@ src/app/api/**                API REST y flujos SSE
 |---|---|---|
 | `/containers` | GET, POST | Listar / crear e iniciar |
 | `/containers/:id/:action` | POST | `start`, `stop`, `restart`, `remove` |
+| `/containers/batch` | POST | Inicia / detiene / reinicia / elimina varios contenedores, en orden de dependencias cuando Compose lo indica |
 | `/containers/:id/logs` | GET (SSE) | Logs en vivo |
 | `/containers/:id/inspect` | GET | Detalles del contenedor; se omiten los valores que parecen sensibles |
 | `/containers/:id/env?name=` | GET | El valor real de UNA variable de entorno (acción explícita «Mostrar»; no se guarda en caché) |

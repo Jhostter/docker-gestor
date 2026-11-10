@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [Unreleased]
 
 ### Added
+- **Manage containers by stack or by selection.** Each group header shows `running/total` with combined CPU and memory and offers start all / stop all / restart all; rows have checkboxes and a bar offers start / stop / restart / delete for any selection, even across groups. Groups can be collapsed (remembered).
+- Group actions work on the containers themselves, so they cover stacks Compose cannot manage (e.g. created by Supabase CLI) and containers outside any stack.
+- **Dependency-aware ordering:** when Compose records `depends_on`, containers start dependencies-first and stop in reverse, in layers that run in parallel. Idempotent (already-running containers are skipped) and failures are isolated and listed.
+- Stop, restart and delete of several containers always ask first and list the names.
+- `POST /api/containers/batch`, unit tests for the ordering and `npm run e2e:groups` (negative-control tested; runs in CI on Linux).
 - **Container details** (click a name or the ⓘ button): overview with why it stopped (exit code explained, OOM, restart count), environment, mounts, ports, networks, health history, labels and the full `inspect`, plus **notable settings** (privileged, Docker socket or host root mounted, host network/PID, extra capabilities).
 - Secret-looking environment values and command arguments are **never sent** unless you press *Show* on one variable. Detection covers names (including any `*KEY*`), credentials inside URLs and the look of the value (JWTs, token prefixes, long key-like strings). A check against a real Docker found `*_KEY` variables that an earlier rule missed; the rule was widened and re-verified (0 leaks across 276 variables).
 - `npm run e2e:detail`, a negative-control-tested end-to-end check that no secret leaks (runs in CI on Linux).
