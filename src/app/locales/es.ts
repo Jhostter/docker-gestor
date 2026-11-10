@@ -108,4 +108,11 @@ export const es = {
   dt_health_none: "No tiene comprobación de salud configurada (se define en la imagen o en el compose).", dt_h_streak: "Fallos seguidos: {n}", dt_h_last: "Últimas comprobaciones", dt_h_ok: "correcta", dt_h_fail: "falló (código {code})",
   dt_health_healthy: "Saludable", dt_health_unhealthy: "No saludable", dt_health_starting: "Arrancando", dt_labels_none: "Sin etiquetas",
   dt_raw_note: "JSON completo de docker inspect, con los valores sensibles ocultos.", dt_raw_copy: "Copiar JSON",
+  // Grupos y selección
+  grp_start: "Iniciar todos", grp_stop: "Detener todos", grp_restart: "Reiniciar todos", grp_select: "Seleccionar el grupo", grp_collapse: "Plegar grupo", grp_expand: "Desplegar grupo",
+  grp_summary: "{running}/{total} en marcha", grp_row_select: "Seleccionar {name}", grp_select_all: "Seleccionar todo lo visible",
+  bulk_selected: "{n} seleccionado|{n} seleccionados", bulk_clear: "Quitar selección",
+  grp_c_stop: "Detener {n} contenedor|Detener {n} contenedores", grp_c_restart: "Reiniciar {n} contenedor|Reiniciar {n} contenedores", grp_c_remove: "Eliminar {n} contenedor|Eliminar {n} contenedores",
+  grp_c_order: "Se hará por capas, siguiendo las dependencias de Compose cuando existen:", grp_c_remove_body: "Se eliminarán aunque estén en marcha; los volúmenes con nombre se conservan.",
+  grp_done: "{n} contenedor correcto|{n} contenedores correctos", grp_done_part: "{ok} correctos, {failed} con error", grp_failed_title: "Contenedores con error",
 } as const;

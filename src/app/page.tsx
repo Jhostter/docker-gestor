@@ -52,6 +52,7 @@ function App() {
   const [term, setTerm] = useState<Container | null>(null);
   const [chart, setChart] = useState<Container | null>(null);
   const [detail, setDetail] = useState<Container | null>(null);
+  const [batchFailed, setBatchFailed] = useState<{ id: string; name: string; error?: string }[] | null>(null);
   const [creating, setCreating] = useState(false);
   const [help, setHelp] = useState(false);
   const [output, setOutput] = useState<{ title: string; text: string } | null>(null);
@@ -159,6 +160,26 @@ function App() {
       run(c.id, () => post(`/api/containers/${c.id}/remove`), t("del_done", { name: c.name }));
   };
 
+  /** Start / stop / restart / delete several containers (a stack, a group or a selection). Returns false if the user cancelled. */
+  const batch = async (action: BatchAction, cs: Container[], key: string) => {
+    if (!cs.length) return false;
+    if (action !== "start") {
+      const names = cs.map((c) => c.name), shown = names.slice(0, 12).join(", ") + (names.length > 12 ? ` … +${names.length - 12}` : "");
+      const yes = await confirm({ title: t(`grp_c_${action}` as Key, { n: cs.length }), body: `${action === "remove" ? t("grp_c_remove_body") : t("grp_c_order")} ${shown}`, confirm: action === "remove" ? t("delete") : action === "stop" ? t("act_stop") : t("act_restart"), danger: action === "remove" });
+      if (!yes) return false;
+    }
+    setBusy((b) => new Set(b).add(key));
+    try {
+      const { results } = await post<{ results: { id: string; name: string; ok: boolean; error?: string }[] }>("/api/containers/batch", { action, ids: cs.map((c) => c.id) });
+      const bad = results.filter((r) => !r.ok);
+      toast(bad.length ? "error" : "ok", bad.length ? t("grp_done_part", { ok: results.length - bad.length, failed: bad.length }) : t("grp_done", { n: results.length }));
+      if (bad.length) setBatchFailed(bad);
+    } catch (e) { toast("error", (e as Error).message); }
+    setBusy((b) => { const n = new Set(b); n.delete(key); return n; });
+    refresh();
+    return true;
+  };
+
   const running = containers?.filter((c) => c.state === "running").length ?? 0;
   const langBtn = <Btn kind="ghost" label={t("lang_label")} onClick={toggleLang}>{lang.toUpperCase()}</Btn>;
 
@@ -185,7 +206,7 @@ function App() {
 
       <main className="min-w-0 flex-1 p-4 pb-20 md:p-6">
         {online === false && <div role="alert" className="mb-4 rounded-lg border border-bad/40 bg-bad/10 p-3 text-sm text-bad">{t("lost_banner")} <code>systemctl --user status docker-gestor</code>.</div>}
-        {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, setLogs, setTerm, setChart, setDetail, running }} />}
+        {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail, running }} />}
         {tab === "compose" && <ComposeView {...{ stacks, busy, run, confirm, setOutput, goTo: (name: string) => { setTab("containers"); setTimeout(() => setSearch(name), 0); } }} />}
         {tab === "images" && <ImagesView {...{ images, containers, busy, run, confirm, search, setSearch, searchRef }} />}
         {tab === "volumes" && <VolumesView {...{ volumes, busy, run, confirm, search, setSearch, searchRef }} />}
@@ -204,21 +225,28 @@ function App() {
       {creating && <CreateForm networks={(networks ?? []).filter((n) => !["host", "none"].includes(n.name)).map((n) => n.name)} images={(images ?? []).flatMap((i) => i.tags)} onClose={() => setCreating(false)}
         onSubmit={async (b) => { await post("/api/containers", b); toast("ok", t("created_ok")); refresh(); }} />}
       {output && <Modal wide title={output.title} onClose={() => setOutput(null)}><pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap rounded-lg bg-bg p-3 font-mono text-xs">{output.text.trim() || t("no_output")}</pre></Modal>}
+      {batchFailed && <Modal wide title={t("grp_failed_title")} onClose={() => setBatchFailed(null)}><ul className="divide-y divide-line rounded-lg border border-line text-sm">{batchFailed.map((f) => <li key={f.id} className="px-3 py-2"><span className="font-medium">{f.name}</span><p className="text-xs text-bad">{f.error}</p></li>)}</ul></Modal>}
       {help && <HelpModal onClose={() => setHelp(false)} />}
     </div>
   );
 }
 
 /* ================= Containers ================= */
+type BatchAction = "start" | "stop" | "restart" | "remove";
 type CV = {
   containers: Container[] | null; stats: Record<string, Stat>; busy: Set<string>; search: string; setSearch: (s: string) => void; searchRef: React.Ref<HTMLInputElement>; running: number;
-  ctl: (c: Container, a: "start" | "stop" | "restart") => void; del: (c: Container) => void; openCreate: () => void;
+  ctl: (c: Container, a: "start" | "stop" | "restart") => void; del: (c: Container) => void; openCreate: () => void; batch: (a: BatchAction, cs: Container[], key: string) => Promise<boolean>;
   setLogs: (c: Container) => void; setTerm: (c: Container) => void; setChart: (c: Container) => void; setDetail: (c: Container) => void;
 };
-function ContainersView({ containers, stats, busy, search, setSearch, searchRef, running, ctl, del, openCreate, setLogs, setTerm, setChart, setDetail }: CV) {
+const loadCollapsed = (): Set<string> => { try { return new Set(JSON.parse(localStorage.getItem("collapsedGroups") ?? "[]")); } catch { return new Set(); } };
+
+function ContainersView({ containers, stats, busy, search, setSearch, searchRef, running, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail }: CV) {
   const { t } = useT();
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
   const [group, setGroup] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  useEffect(() => { setCollapsed(loadCollapsed()); }, []);
   const all = containers ?? [];
   const list = useMemo(() => {
     const q = search.toLowerCase();
@@ -233,14 +261,21 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
     return [...m.entries()].sort(([a], [b]) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
   }, [list, group]);
 
+  const picked = all.filter((c) => selected.has(c.id)); // only containers that still exist
+  const toggle = (id: string) => setSelected((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const setMany = (cs: Container[], on: boolean) => setSelected((s) => { const n = new Set(s); cs.forEach((c) => (on ? n.add(c.id) : n.delete(c.id))); return n; });
+  const toggleCollapsed = (k: string) => setCollapsed((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); try { localStorage.setItem("collapsedGroups", JSON.stringify([...n])); } catch {} return n; });
+  const act = async (a: BatchAction, cs: Container[], key: string) => { if (await batch(a, cs, key)) setSelected(new Set()); };
+
   return (
-    <section aria-label={t("tab_containers")} className="space-y-4">
+    <section aria-label={t("tab_containers")} className="space-y-4 pb-14">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[[t("stat_running"), `${running}`, t("stat_of", { n: all.length })], [t("stat_cpu"), live.length ? cpu.toFixed(1) + "%" : "–", t("stat_active")], [t("stat_mem"), live.length ? bytes(mem) : "–", t("stat_in_use")], [t("stat_stacks"), `${new Set(all.map((c) => c.project).filter(Boolean)).size}`, t("stat_compose")]].map(([title, v, s]) => (
           <Card key={title} className="p-3"><p className="text-xs text-muted">{title}</p><p className="text-2xl font-semibold tabular-nums">{containers ? v : "…"}</p><p className="text-xs text-muted">{s}</p></Card>
         ))}
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        <input type="checkbox" aria-label={t("grp_select_all")} title={t("grp_select_all")} checked={list.length > 0 && list.every((c) => selected.has(c.id))} onChange={(e) => setMany(list, e.target.checked)} ref={(el) => { if (el) el.indeterminate = list.some((c) => selected.has(c.id)) && !list.every((c) => selected.has(c.id)); }} />
         <SearchBox value={search} onChange={setSearch} placeholder={t("search")} inputRef={searchRef} />
         <Chips value={filter} onChange={setFilter} options={[{ id: "all", label: t("f_all"), count: all.length }, { id: "up", label: t("f_up"), count: running }, { id: "down", label: t("f_down"), count: all.length - running }]} />
         <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted"><input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} />{t("group_by")}</label>
@@ -248,24 +283,57 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
       </div>
       {containers === null ? <Loading label={t("loading")} />
         : list.length === 0 ? <Empty icon="box" title={all.length ? t("empty_nomatch") : t("empty_none")} hint={all.length ? t("empty_nomatch_hint") : t("empty_none_hint")} />
-        : groups.map(([name, items]) => (
-          <div key={name}>
-            {group && <h3 className="mb-1.5 mt-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted"><Icon name="layers" className="size-3.5" />{name || t("no_stack")}<span className="font-normal">({items.length})</span></h3>}
-            <Card className="divide-y divide-line overflow-hidden">
-              {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], busy: busy.has(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} />)}
-            </Card>
+        : groups.map(([name, items]) => {
+          const up = items.filter((c) => c.state === "running"), key = name || "\u0000", folded = group && collapsed.has(key), all_ = items.every((c) => selected.has(c.id)), some = items.some((c) => selected.has(c.id));
+          const gcpu = items.reduce((a, c) => a + (stats[c.id]?.cpu ?? 0), 0), gmem = items.reduce((a, c) => a + (stats[c.id]?.mem ?? 0), 0), gb = busy.has(`group:${key}`);
+          return (
+            <div key={name}>
+              {group && (
+                <div className="mb-1.5 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <input type="checkbox" aria-label={`${t("grp_select")}: ${name || t("no_stack")}`} checked={all_} onChange={(e) => setMany(items, e.target.checked)} ref={(el) => { if (el) el.indeterminate = some && !all_; }} />
+                  <button onClick={() => toggleCollapsed(key)} aria-expanded={!folded} title={folded ? t("grp_expand") : t("grp_collapse")} className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted hover:text-fg">
+                    <Icon name="down" className={`size-3.5 transition-transform ${folded ? "-rotate-90" : ""}`} /><Icon name="layers" className="size-3.5" />{name || t("no_stack")}<span className="font-normal normal-case">({items.length})</span>
+                  </button>
+                  <span className="text-xs text-muted">{t("grp_summary", { running: up.length, total: items.length })}{live.length > 0 && ` · ${gcpu.toFixed(1)}% · ${bytes(gmem)}`}</span>
+                  <div className="ml-auto flex gap-0.5">
+                    <Btn kind="ghost" icon="play" label={`${t("grp_start")}: ${name || t("no_stack")}`} busy={gb} disabled={up.length === items.length} onClick={() => act("start", items.filter((c) => c.state !== "running"), `group:${key}`)} />
+                    <Btn kind="ghost" icon="stop" label={`${t("grp_stop")}: ${name || t("no_stack")}`} disabled={gb || up.length === 0} onClick={() => act("stop", up, `group:${key}`)} />
+                    <Btn kind="ghost" icon="restart" label={`${t("grp_restart")}: ${name || t("no_stack")}`} disabled={gb} onClick={() => act("restart", items, `group:${key}`)} />
+                  </div>
+                </div>
+              )}
+              {!folded && (
+                <Card className="divide-y divide-line overflow-hidden">
+                  {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], busy: busy.has(c.id), checked: selected.has(c.id), toggle: () => toggle(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} />)}
+                </Card>
+              )}
+            </div>
+          );
+        })}
+
+      {picked.length > 0 && (
+        <div className="sticky bottom-3 z-10 flex justify-end">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-surface p-2 pl-4 shadow-lg ring-1 ring-line">
+            <span className="text-sm font-medium">{t("bulk_selected", { n: picked.length })}</span>
+            <Btn icon="play" busy={busy.has("bulk")} onClick={() => act("start", picked.filter((c) => c.state !== "running"), "bulk")} disabled={picked.every((c) => c.state === "running")}>{t("act_start")}</Btn>
+            <Btn icon="stop" disabled={busy.has("bulk") || !picked.some((c) => c.state === "running")} onClick={() => act("stop", picked.filter((c) => c.state === "running"), "bulk")}>{t("act_stop")}</Btn>
+            <Btn icon="restart" disabled={busy.has("bulk")} onClick={() => act("restart", picked, "bulk")}>{t("act_restart")}</Btn>
+            <Btn kind="danger" icon="trash" disabled={busy.has("bulk")} onClick={() => act("remove", picked, "bulk")}>{t("delete")}</Btn>
+            <Btn kind="ghost" onClick={() => setSelected(new Set())}>{t("bulk_clear")}</Btn>
           </div>
-        ))}
+        </div>
+      )}
     </section>
   );
 }
 
-function Row({ c, s, busy, ctl, del, setLogs, setTerm, setChart, setDetail }: { c: Container; s?: Stat; busy: boolean; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
+function Row({ c, s, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart, setDetail }: { c: Container; s?: Stat; busy: boolean; checked: boolean; toggle: () => void; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
   const { t } = useT();
   const up = c.state === "running";
   const tone = up ? (/unhealthy/.test(c.status) ? "bad" : /starting/.test(c.status) ? "warn" : "ok") : c.state === "exited" || c.state === "created" ? "muted" : "warn";
   return (
-    <div className="grid items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.4fr)_7rem_7rem_auto]">
+    <div className="grid items-center gap-x-4 gap-y-2 px-4 py-3 md:grid-cols-[1.25rem_minmax(0,2.2fr)_minmax(0,1.4fr)_7rem_7rem_auto]">
+      <input type="checkbox" checked={checked} onChange={toggle} aria-label={t("grp_row_select", { name: c.name })} />
       <div className="min-w-0">
         <button onClick={() => setDetail(c)} className="block max-w-full truncate text-left font-medium hover:text-accent hover:underline" title={`${c.name} — ${t("act_details")}`}>{c.name}</button>
         <p className="truncate text-xs text-muted" title={c.image}>{c.image}</p>

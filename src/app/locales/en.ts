@@ -110,4 +110,11 @@ export const en: Record<keyof typeof es, string> = {
   dt_health_none: "No health check configured (it is defined in the image or in the compose file).", dt_h_streak: "Consecutive failures: {n}", dt_h_last: "Latest checks", dt_h_ok: "passed", dt_h_fail: "failed (code {code})",
   dt_health_healthy: "Healthy", dt_health_unhealthy: "Unhealthy", dt_health_starting: "Starting", dt_labels_none: "No labels",
   dt_raw_note: "Full docker inspect JSON, with sensitive values hidden.", dt_raw_copy: "Copy JSON",
+  // Groups and selection
+  grp_start: "Start all", grp_stop: "Stop all", grp_restart: "Restart all", grp_select: "Select the group", grp_collapse: "Collapse group", grp_expand: "Expand group",
+  grp_summary: "{running}/{total} running", grp_row_select: "Select {name}", grp_select_all: "Select everything visible",
+  bulk_selected: "{n} selected|{n} selected", bulk_clear: "Clear selection",
+  grp_c_stop: "Stop {n} container|Stop {n} containers", grp_c_restart: "Restart {n} container|Restart {n} containers", grp_c_remove: "Delete {n} container|Delete {n} containers",
+  grp_c_order: "It runs in layers, following Compose's dependencies when they exist:", grp_c_remove_body: "They will be deleted even if running; named volumes are kept.",
+  grp_done: "{n} container done|{n} containers done", grp_done_part: "{ok} done, {failed} failed", grp_failed_title: "Containers that failed",
 };

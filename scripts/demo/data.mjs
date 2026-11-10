@@ -4,17 +4,19 @@ import { createHash } from "node:crypto";
 const id = (name) => createHash("sha256").update(`demo:${name}`).digest("hex");
 const SHOP = { "com.docker.compose.project": "shop", "com.docker.compose.project.config_files": "/srv/demo/shop/docker-compose.yml", "com.docker.compose.project.working_dir": "/srv/demo/shop" };
 const MON = { "com.docker.compose.project": "monitoring", "com.docker.compose.project.config_files": "/srv/demo/monitoring/docker-compose.yml", "com.docker.compose.project.working_dir": "/srv/demo/monitoring" };
+/** Compose service name + dependencies, like `docker compose` records them in labels. */
+const SVC = (project, service, dependsOn) => ({ ...(project === "shop" ? SHOP : MON), "com.docker.compose.service": service, ...(dependsOn ? { "com.docker.compose.depends_on": dependsOn } : {}) });
 
 // cpu: average %, mem: MB, kind: log flavour
 export const CONTAINERS = [
-  { name: "shop-web", image: "nginx:1.27-alpine", ports: [[8080, 80]], labels: SHOP, status: "Up 3 days", cpu: 1.4, mem: 18, kind: "nginx" },
-  { name: "shop-api", image: "ghcr.io/acme/shop-api:2.4.1", ports: [[3000, 3000]], labels: SHOP, status: "Up 3 days (healthy)", cpu: 6.8, mem: 212, kind: "api" },
-  { name: "shop-db", image: "postgres:16-alpine", ports: [[5432, 5432]], labels: SHOP, status: "Up 3 days (healthy)", cpu: 3.1, mem: 164, kind: "postgres" },
-  { name: "shop-cache", image: "redis:7-alpine", ports: [], labels: SHOP, status: "Up 3 days", cpu: 0.6, mem: 9, kind: "redis" },
-  { name: "shop-worker", image: "ghcr.io/acme/shop-api:2.4.1", ports: [], labels: SHOP, status: "Up 3 days", cpu: 2.2, mem: 148, kind: "worker" },
-  { name: "grafana", image: "grafana/grafana:11.3.0", ports: [[3001, 3000]], labels: MON, status: "Up 2 days", cpu: 1.1, mem: 96, kind: "api" },
-  { name: "prometheus", image: "prom/prometheus:v2.55.0", ports: [[9090, 9090]], labels: MON, status: "Up 2 days", cpu: 2.7, mem: 231, kind: "api" },
-  { name: "node-exporter", image: "prom/node-exporter:v1.8.2", ports: [], labels: MON, status: "Up 2 days", cpu: 0.3, mem: 12, kind: "redis" },
+  { name: "shop-web", image: "nginx:1.27-alpine", ports: [[8080, 80]], labels: SVC("shop", "web", "api:service_started:false"), status: "Up 3 days", cpu: 1.4, mem: 18, kind: "nginx" },
+  { name: "shop-api", image: "ghcr.io/acme/shop-api:2.4.1", ports: [[3000, 3000]], labels: SVC("shop", "api", "db:service_healthy:false,cache:service_started:false"), status: "Up 3 days (healthy)", cpu: 6.8, mem: 212, kind: "api" },
+  { name: "shop-db", image: "postgres:16-alpine", ports: [[5432, 5432]], labels: SVC("shop", "db"), status: "Up 3 days (healthy)", cpu: 3.1, mem: 164, kind: "postgres" },
+  { name: "shop-cache", image: "redis:7-alpine", ports: [], labels: SVC("shop", "cache"), status: "Up 3 days", cpu: 0.6, mem: 9, kind: "redis" },
+  { name: "shop-worker", image: "ghcr.io/acme/shop-api:2.4.1", ports: [], labels: SVC("shop", "worker", "db:service_healthy:false,cache:service_started:false"), status: "Up 3 days", cpu: 2.2, mem: 148, kind: "worker" },
+  { name: "grafana", image: "grafana/grafana:11.3.0", ports: [[3001, 3000]], labels: SVC("monitoring", "grafana", "prometheus:service_started:false"), status: "Up 2 days", cpu: 1.1, mem: 96, kind: "api" },
+  { name: "prometheus", image: "prom/prometheus:v2.55.0", ports: [[9090, 9090]], labels: SVC("monitoring", "prometheus"), status: "Up 2 days", cpu: 2.7, mem: 231, kind: "api" },
+  { name: "node-exporter", image: "prom/node-exporter:v1.8.2", ports: [], labels: SVC("monitoring", "node-exporter"), status: "Up 2 days", cpu: 0.3, mem: 12, kind: "redis" },
   { name: "mailpit", image: "axllent/mailpit:v1.21", ports: [[8025, 8025], [1025, 1025]], labels: {}, status: "Up 5 hours (unhealthy)", cpu: 0.2, mem: 21, kind: "api" },
   { name: "old-experiment", image: "alpine:3.20", ports: [], labels: {}, status: "Exited (0) 6 hours ago", cpu: 0, mem: 0, kind: "api", state: "exited" },
 ].map((c) => ({ ...c, id: id(c.name), state: c.state ?? "running" }));

@@ -35,7 +35,8 @@
     "demo:shots": "node scripts/demo/screenshots.mjs",
     "e2e:alerts": "node scripts/e2e-alerts.mjs",
     "e2e:disk": "node scripts/e2e-disk.mjs",
-    "e2e:detail": "node scripts/e2e-detail.mjs"
+    "e2e:detail": "node scripts/e2e-detail.mjs",
+    "e2e:groups": "node scripts/e2e-groups.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

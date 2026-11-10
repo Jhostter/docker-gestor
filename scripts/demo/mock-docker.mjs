@@ -14,6 +14,8 @@ const images = IMAGES.map((i) => ({ ...i, RepoTags: i.RepoTags ? [...i.RepoTags]
 const volumes = VOLUMES.map((v) => ({ ...v }));
 let cache = BUILD_CACHE.map((c) => ({ ...c }));
 const listeners = new Set();
+const ops = []; // ordered log of start/stop/restart/remove calls (read it at /_demo/ops)
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const emit = (type, action, name, image = "", extra = {}) => {
   const t = Date.now(), line = JSON.stringify({ Type: type, Action: action, Actor: { ID: ctrId(name), Attributes: { name, image, ...extra } }, time: Math.floor(t / 1000), timeNano: t * 1e6 }) + "\n";
   listeners.forEach((w) => w.write(line));
@@ -62,7 +64,7 @@ const LOG = {
 };
 const frame = (text) => { const b = Buffer.from(text + "\n"); const h = Buffer.alloc(8); h[0] = 1; h.writeUInt32BE(b.length, 4); return Buffer.concat([h, b]); };
 
-http.createServer((req, res) => {
+http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), p = u.pathname, m = req.method;
   let r;
   if (m === "GET" && p === "/containers/json") return json(res, state.filter((c) => u.searchParams.get("all") === "true" || c.state === "running").map(summary));
@@ -83,13 +85,14 @@ http.createServer((req, res) => {
       req.on("close", () => clearInterval(timer)); return;
     }
     if (m === "POST") {
+      ops.push({ action: r[2], name: c.name, at: Date.now() }); await delay(120); // a little work, so concurrent layers overlap
       const was = c.state;
       if (r[2] === "stop") { c.state = "exited"; c.status = "Exited (143) just now"; emit("container", "die", c.name, c.image, { exitCode: "143" }); emit("container", "stop", c.name, c.image); } // exit code 143 like a real `docker stop` (SIGTERM)
       else { c.state = "running"; c.status = "Up a few seconds"; emit("container", r[2] === "restart" && was === "running" ? "restart" : "start", c.name, c.image); }
       res.writeHead(204); return res.end();
     }
   }
-  if (m === "DELETE" && (r = p.match(/^\/containers\/([^/]+)$/))) { const i = state.findIndex((c) => c.id.startsWith(r[1])); if (i >= 0 && state[i].state === "running" && u.searchParams.get("force") !== "true") return json(res, { message: "cannot remove a running container" }, 409); if (i >= 0) { emit("container", "destroy", state[i].name, state[i].image); state.splice(i, 1); } res.writeHead(204); return res.end(); }
+  if (m === "DELETE" && (r = p.match(/^\/containers\/([^/]+)$/))) { const i = state.findIndex((c) => c.id.startsWith(r[1])); if (i >= 0) ops.push({ action: "remove", name: state[i].name, at: Date.now() }); if (i >= 0 && state[i].state === "running" && u.searchParams.get("force") !== "true") return json(res, { message: "cannot remove a running container" }, 409); if (i >= 0) { emit("container", "destroy", state[i].name, state[i].image); state.splice(i, 1); } res.writeHead(204); return res.end(); }
   if (m === "GET" && p === "/images/json") return json(res, images);
   if (m === "GET" && p === "/volumes") return json(res, { Volumes: volumes, Warnings: null });
   if (m === "GET" && p === "/system/df") {
@@ -141,6 +144,7 @@ http.createServer((req, res) => {
     for (const [dt, type, action, name] of seed) { const ms = t + dt * 1000; if (ms < since) continue; res.write(JSON.stringify({ Type: type, Action: action, Actor: { ID: name, Attributes: { name } }, time: Math.floor(ms / 1000), timeNano: ms * 1e6 }) + "\n"); }
     listeners.add(res); req.on("close", () => listeners.delete(res)); return;
   }
+  if (m === "GET" && p === "/_demo/ops") return json(res, ops);
   if (m === "POST" && (r = p.match(/^\/_demo\/(crash|oom|unhealthy|healthy)\/([^/]+)$/))) {
     // Fault injection for demos and the alerts end-to-end test; it does not exist in the real Docker API.
     const c = find(r[2]); if (!c) return json(res, { message: "No such container" }, 404);
