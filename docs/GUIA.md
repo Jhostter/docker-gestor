@@ -150,6 +150,24 @@ Abre una shell interactiva dentro del contenedor (`bash` si existe, si no `sh`),
 
 Muestra CPU (%) y memoria con rangos de **1 h**, **24 h** y **7 días**. Pasa el ratón (o el dedo) sobre la gráfica para ver el valor exacto y la hora de cada punto. Si acabas de arrancar el servicio o el contenedor, verás «Aún no hay suficientes datos»: se toma una muestra cada 15 s.
 
+### Detalles del contenedor
+
+Haz clic en el nombre de un contenedor, o en el botón ⓘ, para abrir sus detalles. Sustituye a ejecutar `docker inspect` a mano:
+
+| Pestaña | Qué muestra |
+|---|---|
+| **Resumen** | Estado, **por qué se detuvo** (código de salida explicado: `137` = detenido a la fuerza, `143` = parada normal, `1` = error de la aplicación…, más el indicador de *sin memoria*), reinicios y política, imagen, comando, usuario, límites y **ajustes a tener en cuenta** |
+| **Variables** | Variables, con buscador. Los valores que parecen sensibles están **ocultos**; pulsa **Mostrar** para pedir uno y **Copiar** para copiarlo |
+| **Montajes** | Carpetas del equipo y volúmenes, con su ruta y el modo solo lectura / lectura y escritura |
+| **Red** | Puertos publicados (con enlace), puertos expuestos pero no publicados, y cada red con su IP, puerta de enlace y alias |
+| **Salud** | Estado de salud, fallos seguidos y las últimas comprobaciones con su salida |
+| **Etiquetas** | Todas las etiquetas (proyecto de Compose, metadatos de la imagen…) |
+| **JSON** | El `docker inspect` completo, con los valores sensibles ocultos |
+
+Los **ajustes a tener en cuenta** señalan lo que conviene saber de un contenedor: el modo *privilegiado*, el **socket de Docker** montado (control equivalente a root sobre el equipo), el **sistema de archivos raíz** del equipo montado, el espacio de **red** o de **procesos** del equipo y las **capacidades** de Linux extra.
+
+**Cómo se tratan los secretos:** el servidor nunca envía el valor de una variable que parezca sensible (ni de un argumento de comando que lo parezca) salvo que pulses **Mostrar** en esa variable concreta; esa petición no se guarda en caché. La detección es una heurística aproximada sobre el **nombre** (`*PASSWORD*`, `*TOKEN*`, `*KEY*`, `*SECRET*`…), sobre las **credenciales dentro de una URL** (`postgres://usuario:clave@host`) y sobre el **aspecto del valor** (JWT, prefijos conocidos de tokens, cadenas largas tipo clave). Prefiere ocultar de más: un falso positivo solo cuesta un clic, pero no es una barrera de seguridad frente a quien ya controla Docker.
+
 ### Crear un contenedor
 
 Botón **+ Nuevo contenedor** (o tecla `n`):
@@ -408,6 +426,7 @@ Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso
 - Los puertos de los contenedores creados desde el panel se publican solo en `127.0.0.1`.
 - Todas las entradas (nombres, puertos, variables, volúmenes, imágenes) se validan en el servidor.
 - Compose solo actúa sobre stacks que Docker ya conoce.
+- Los detalles del contenedor nunca incluyen el valor de variables que parezcan sensibles salvo que pulses *Mostrar* en esa variable.
 - Las alertas solo hacen peticiones salientes a la API de Telegram y a la URL de webhook que configures; sus secretos viven en un archivo `600` y nunca se devuelven al navegador.
 - **No hay autenticación**: cualquier proceso o usuario con acceso a `localhost:4455` en tu máquina puede usar el panel.
 
@@ -431,6 +450,7 @@ Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso
 | Salta una alerta por algo que hice yo | Solo se reconocen como intencionados los stop, restart y eliminaciones; un `docker kill` cuenta como caída |
 | La sección Disco tarda la primera vez | Docker calcula los tamaños bajo demanda; con muchas imágenes o volúmenes pueden ser varios segundos. El resultado se guarda 15 s |
 | Algo no se pudo limpiar | Está en uso: la lista muestra el motivo de Docker. Detén y elimina antes el contenedor que lo usa |
+| Una variable aparece oculta pero no es un secreto | La detección es deliberadamente prudente (cualquier nombre con `key`, `token`, `pass`…): pulsa *Mostrar* para verla |
 | No arranca al encender el equipo | Falta el *linger*: `sudo loginctl enable-linger $USER` |
 | El servicio se reinicia solo | Puede haber llegado al límite de memoria (256 MB): mira `journalctl --user -u docker-gestor` |
 
@@ -459,6 +479,7 @@ src/lib/docker.ts             Cliente de Docker, validación de Host/Origin, uti
 src/lib/history.ts            Muestreo y consultas SQLite
 src/lib/alerts-core.mjs       Reglas de alertas y validación (puro, con pruebas)
 src/lib/alerts.ts             E/S de alertas: vigilancia de Docker, Telegram, webhook, almacenamiento
+src/lib/inspect-core.mjs       Detalles del contenedor y enmascarado de secretos (puro, con pruebas)
 src/lib/disk-core.mjs         Análisis de uso de disco y validación de limpieza (puro, con pruebas)
 src/lib/disk.ts               Informe de disco y limpieza elemento a elemento
 src/app/page.tsx              Interfaz (secciones)
@@ -476,6 +497,8 @@ src/app/api/**                API REST y flujos SSE
 | `/containers` | GET, POST | Listar / crear e iniciar |
 | `/containers/:id/:action` | POST | `start`, `stop`, `restart`, `remove` |
 | `/containers/:id/logs` | GET (SSE) | Logs en vivo |
+| `/containers/:id/inspect` | GET | Detalles del contenedor; se omiten los valores que parecen sensibles |
+| `/containers/:id/env?name=` | GET | El valor real de UNA variable de entorno (acción explícita «Mostrar»; no se guarda en caché) |
 | `/stats` | GET | CPU/RAM de los contenedores en marcha |
 | `/history?name=&range=` | GET | Serie del historial (`1h`, `24h`, `7d`) |
 | `/events` | GET (SSE) | Eventos de Docker |

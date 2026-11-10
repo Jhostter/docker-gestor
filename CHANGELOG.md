@@ -5,6 +5,9 @@ All notable changes to this project are documented here. The format follows [Kee
 ## [Unreleased]
 
 ### Added
+- **Container details** (click a name or the ⓘ button): overview with why it stopped (exit code explained, OOM, restart count), environment, mounts, ports, networks, health history, labels and the full `inspect`, plus **notable settings** (privileged, Docker socket or host root mounted, host network/PID, extra capabilities).
+- Secret-looking environment values and command arguments are **never sent** unless you press *Show* on one variable. Detection covers names (including any `*KEY*`), credentials inside URLs and the look of the value (JWTs, token prefixes, long key-like strings). A check against a real Docker found `*_KEY` variables that an earlier rule missed; the rule was widened and re-verified (0 leaks across 276 variables).
+- `npm run e2e:detail`, a negative-control-tested end-to-end check that no secret leaks (runs in CI on Linux).
 - **Disk** section: how much space Docker uses (images, containers, volumes, build cache) and how much is reclaimable, with figures that match `docker system df`.
 - **Safe cleanup** with a preview: unused build cache, untagged images, stopped containers, unused tagged images and unused volumes. Only the build cache and untagged images are pre-selected; volumes need an explicit data-loss acknowledgement.
 - Items are removed one by one by id (never a global prune) and without `force`; Docker Gestor also refuses running containers itself, and failures are listed with Docker's reason.

@@ -73,6 +73,9 @@ await addIn("Volumes"); await type('input[aria-label="Volumes 1"]', "web_data:/u
 
 await open({ h: 1650 }); await click("Alerts"); await sleep(1500); await png("alerts");
 
+await open(); await click("Details", "node-exporter"); await sleep(1500); await png("detail"); await esc();
+await open(); await click("Details", "shop-api"); await sleep(1200); await click("Environment"); await sleep(500); await png("detail-env"); await esc();
+
 await open({ h: 1500 }); await click("Disk"); await sleep(2800); await png("disk");
 
 await open(); await click("Compose"); await sleep(1500); await png("compose");
@@ -103,6 +106,7 @@ if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0) {
   const b2 = JSON.parse(await ev(`JSON.stringify(document.querySelector('[role=dialog] svg[role=img]').getBoundingClientRect())`));
   for (let i = 0; i <= 20; i++) { await mouse(b2.x + b2.width * (0.25 + i * 0.03), b2.y + b2.height / 2); await sleep(60); }
   await click("24 h"); await sleep(1500); await esc();
+  await click("Details", "shop-api"); await sleep(1200); await click("Environment"); await sleep(1300); await click("Network"); await sleep(1200); await esc();
   await click("Compose"); await sleep(1300); await click("Events"); await sleep(2000); await click("Alerts"); await sleep(1800); await click("Disk"); await sleep(2400); await click("Containers"); await sleep(900);
   await click("Light theme"); await sleep(1400); await click("Change language"); await sleep(1600);
   rec = false; await recorder;

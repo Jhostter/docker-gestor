@@ -36,6 +36,7 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 - **Compose** — `up`, `restart`, `stop`, `pull` and `down` for the stacks Docker already knows about.
 - **Images, volumes, networks** — browse, create/pull, remove; images show whether they are in use.
 - **Events** — live Docker event stream (it also keeps the UI in sync without polling).
+- **Container details** — an `inspect` you can read: why it stopped (exit code explained, OOM, restarts), environment, mounts, ports, networks, health history and notable settings (privileged, Docker socket mounted…). Secret-looking values are never sent unless you press *Show*.
 - **Disk usage & safe cleanup** — see where Docker's space goes and free it with a preview: unused build cache, untagged images, stopped containers, unused images and volumes. Nothing is deleted until you confirm, items are removed one by one without `force`, and volumes need an explicit acknowledgement.
 - **Alerts** — get told (browser, **Telegram**, **webhook**) when a container crashes, runs out of memory, turns unhealthy, restarts in a loop or stays at high CPU/RAM. Ignores stops you do yourself; off by default, no measurable cost.
 - **Usage history** — CPU/RAM sampled into SQLite and charted over 1 h / 24 h / 7 days; survives restarts.
@@ -50,7 +51,8 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 | ![Live logs](docs/img/logs.png) **Live logs** | ![Usage chart](docs/img/chart.png) **Usage history** |
 | ![Create container](docs/img/create.png) **Create a container** | ![Compose](docs/img/compose.png) **Compose stacks** |
 | ![Events](docs/img/events.png) **Live events** | ![Alerts](docs/img/alerts.png) **Alerts** (Telegram, webhook, browser) |
-| ![Disk usage](docs/img/disk.png) **Disk usage and safe cleanup** | ![Images](docs/img/images.png) **Images** |
+| ![Disk usage](docs/img/disk.png) **Disk usage and safe cleanup** | ![Container details](docs/img/detail.png) **Container details** |
+| ![Environment, secrets hidden](docs/img/detail-env.png) **Secrets stay hidden until you ask** | ![Images](docs/img/images.png) **Images** |
 | ![Spanish UI](docs/img/containers-es.png) **Spanish UI** | |
 
 <p align="center"><img src="docs/img/mobile.png" alt="Mobile layout" width="260"></p>
@@ -150,6 +152,7 @@ npm run build
 npm run smoke        # boots the built server without Docker and checks it
 npm run e2e:alerts   # alerts end-to-end against a fake Docker, Telegram and webhook
 npm run e2e:disk     # disk cleanup end-to-end (incl. refusing to delete things in use)
+npm run e2e:detail   # container details end-to-end (secrets must never leak)
 ```
 
 Stack: Next.js (App Router) · React · Tailwind CSS 4 · dockerode · `node:sqlite` · ws · xterm.js. UI strings live in `src/app/locales/` (adding a language is one file).
@@ -166,7 +169,7 @@ Issues and pull requests are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md)
 
 # 🇪🇸 Español
 
-Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos alertas (Telegram, webhook y navegador), limpieza segura de disco y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**. La interfaz está en **español e inglés** (selector en la barra lateral).
+Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos alertas (Telegram, webhook y navegador), limpieza segura de disco, detalle de contenedor (con secretos ocultos) y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**. La interfaz está en **español e inglés** (selector en la barra lateral).
 
 **Pensado para una persona y una máquina:** sin servidor de base de datos, sin agente y sin cuentas; solo escucha en `127.0.0.1` y no hace trabajo mientras nadie mira la página. Si necesitas varios usuarios, varios hosts o Kubernetes, usa una herramienta más grande (Portainer y similares).
 

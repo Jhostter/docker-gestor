@@ -143,6 +143,24 @@ An interactive shell inside the container (`bash` if present, otherwise `sh`), w
 
 CPU (%) and memory over **1 h**, **24 h** or **7 days**. Hover (or touch) the chart to read the exact value and time. Right after the service or the container starts you will see “Not enough data yet”: one sample is taken every 15 s.
 
+### Container details
+
+Click a container's name, or the ⓘ button, to open its details. It replaces having to run `docker inspect` by hand:
+
+| Tab | What it shows |
+|---|---|
+| **Overview** | State, **why it stopped** (exit code explained: `137` = killed, `143` = stopped, `1` = application error…, plus the *out of memory* flag), restart count and policy, image, command, user, limits and **notable settings** |
+| **Environment** | Variables, searchable. Sensitive-looking values are **hidden**; press **Show** to fetch one, **Copy** to copy it |
+| **Mounts** | Host folders and volumes, with their path and read-only / read-write mode |
+| **Network** | Published ports (clickable), ports that are exposed but not published, and each network with its IP, gateway and aliases |
+| **Health** | Health status, consecutive failures and the latest checks with their output |
+| **Labels** | All labels (Compose project, image metadata…) |
+| **Raw** | The complete `docker inspect` JSON, with sensitive values hidden |
+
+**Notable settings** calls out things worth knowing about a container: *privileged* mode, the **Docker socket** mounted (root-equivalent control of the machine), the host's **root filesystem** mounted, the host's **network** or **process** namespace, and extra Linux **capabilities**.
+
+**How secrets are handled:** the server never sends the value of a sensitive-looking variable (or of a secret-looking command argument) unless you press **Show** on that single variable; that request is not cacheable. The detection is a best-effort heuristic on the **name** (`*PASSWORD*`, `*TOKEN*`, `*KEY*`, `*SECRET*`…), on **credentials inside URLs** (`postgres://user:pass@host`) and on **how the value looks** (JWTs, well-known token prefixes, long key-like strings). It errs on the side of hiding too much: a false positive only costs a click, but it is not a security boundary against someone who already controls Docker.
+
 ### Create a container
 
 **New container** button (or key `n`):
@@ -377,6 +395,7 @@ Controlling Docker is equivalent to having admin rights on the machine. Therefor
 - Ports of containers created from the panel are published on `127.0.0.1` only.
 - Names, ports, variables, volumes and images are validated server-side.
 - Compose only acts on stacks Docker already knows.
+- Container details never include sensitive-looking variable values unless you press *Show* on that variable.
 - Alerts make outbound requests only to the Telegram API and to the webhook URL you configure; their secrets live in a `600` file and are never returned to the browser.
 - **There is no authentication**: any process or user able to reach `localhost:<port>` on your machine can use the panel.
 
@@ -400,6 +419,7 @@ Controlling Docker is equivalent to having admin rights on the machine. Therefor
 | An alert fires for something I did | Only stops/restarts/removals are recognised as intentional; a `docker kill` is treated as a crash |
 | The Disk section is slow the first time | Docker computes sizes on demand; it can take several seconds with many images or volumes. Results are cached for 15 s |
 | Something could not be cleaned | It is in use: the list shows Docker's reason. Stop and remove the container that uses it first |
+| A variable is hidden but is not a secret | The detection is deliberately cautious (any name containing `key`, `token`, `pass`…): press *Show* to see it |
 | Does not start at boot | Missing linger: `sudo loginctl enable-linger $USER` |
 | Service restarts itself | May have hit the 256 MB memory limit: check `journalctl --user -u docker-gestor` |
 
@@ -431,6 +451,7 @@ src/lib/socket.mjs            Docker endpoint detection (Linux / macOS / Windows
 src/lib/history.ts            Sampling and SQLite queries
 src/lib/alerts-core.mjs       Alert rules and config validation (pure, unit-tested)
 src/lib/alerts.ts             Alert I/O: Docker watcher, Telegram, webhook, storage
+src/lib/inspect-core.mjs       Container details shaping and secret masking (pure, unit-tested)
 src/lib/disk-core.mjs         Disk usage analysis and cleanup validation (pure, unit-tested)
 src/lib/disk.ts               Disk report and per-item cleanup
 src/app/page.tsx              The UI (sections)
@@ -447,6 +468,8 @@ src/app/api/**                REST API and SSE streams
 | `/containers` | GET, POST | List / create and start |
 | `/containers/:id/:action` | POST | `start`, `stop`, `restart`, `remove` |
 | `/containers/:id/logs` | GET (SSE) | Live logs |
+| `/containers/:id/inspect` | GET | Container details; sensitive-looking values are omitted |
+| `/containers/:id/env?name=` | GET | The real value of ONE environment variable (explicit "show"; not cacheable) |
 | `/stats` | GET | CPU/RAM of running containers |
 | `/history?name=&range=` | GET | History series (`1h`, `24h`, `7d`) |
 | `/events` | GET (SSE) | Docker events |
@@ -469,7 +492,7 @@ Connection errors answer `503` with a `code` (`docker_unreachable`, `docker_deni
 ```bash
 systemctl --user stop docker-gestor     # frees port 4455
 npm run dev                             # hot reload
-npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk
+npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail
 ```
 
 No Docker at hand? Run the fake API: `node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &` then `DOCKER_SOCKET=/tmp/docker-mock.sock npm run dev`.
