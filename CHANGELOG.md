@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0] - 2026-11-10
 
 ### Added
 - **Alerts** (off by default): notifications through the browser, **Telegram** and a **webhook** when a container crashes, runs out of memory, becomes unhealthy, restarts in a loop, or stays at high CPU/memory. Stops, restarts and removals you do yourself are ignored; repeats are rate-limited by a cooldown.
