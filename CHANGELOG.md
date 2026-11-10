@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Custom groups.** A new *Group by* selector (**Stack** / **My groups** / **None**, remembered). In *My groups* you create groups from a selection (*Move to group…*), rename them (renaming into an existing group merges), remove containers from them and dissolve them; **dissolving never touches the containers**. Custom groups get the same start all / stop all / restart all, dependency-aware ordering, selection and collapsing as stacks.
+- Groups are stored on the server by **container name** (they survive recreating a container and are shared by every browser). Names are case-insensitive, up to 50 groups of 1-40 characters, with strict validation.
+- `GET`/`PUT /api/groups`, unit tests, and `npm run e2e:custom-groups` (negative-control tested for case-insensitivity and the group limit; runs in CI on Linux).
+- A reusable prompt dialog.
+
+### Changed
+- The *Group by stack* checkbox became the *Group by* selector.
+
 ## [0.3.0] - 2026-11-10
 
 ### Added

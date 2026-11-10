@@ -29,6 +29,10 @@ spawnSync(process.execPath, ["scripts/demo/seed-history.mjs"], { env: { ...proce
 procs.push(spawn(process.execPath, ["server.mjs"], { env: { ...process.env, PORT: String(PORT), DOCKER_SOCKET: sock, DATA_DIR: join(tmp, "data"), ALERT_HOST: "demo-server", TELEGRAM_API_URL: "http://127.0.0.1:9" }, stdio: "ignore" }));
 for (let i = 0; i < 60; i++) { try { if ((await fetch(BASE)).ok) break; } catch { /* booting */ } await sleep(500); }
 
+// demo custom groups (fictional)
+for (const [group, names] of Object.entries({ Frontend: ["shop-web", "grafana", "mailpit"], Backend: ["shop-api", "shop-worker"], Data: ["shop-db", "shop-cache", "prometheus"] }))
+  await fetch(`${BASE}/api/groups`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ names, group }) });
+
 // 2) Chrome over the DevTools protocol
 procs.push(spawn(chromePath, ["--headless=new", "--disable-gpu", "--no-first-run", "--hide-scrollbars", `--user-data-dir=${join(tmp, "chrome")}`, `--remote-debugging-port=${CDP}`, ...(process.env.CI ? ["--no-sandbox"] : []), "about:blank"], { stdio: "ignore" }));
 let page; for (let i = 0; i < 40 && !page; i++) { try { page = (await (await fetch(`http://127.0.0.1:${CDP}/json`)).json()).find((t) => t.type === "page"); } catch { /* starting */ } await sleep(300); }
@@ -41,9 +45,9 @@ const key = (k) => send("Input.dispatchKeyEvent", { type: "keyDown", key: k, cod
 const png = async (name) => { const r = await send("Page.captureScreenshot", { format: "png" }); writeFileSync(join(OUT, `${name}.png`), Buffer.from(r.result.data, "base64")); console.log("  ", name + ".png"); };
 
 const view = (w, h) => send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 600 });
-async function open({ lang = "en", theme = "dark", w = 1400, h = 860 } = {}) {
+async function open({ lang = "en", theme = "dark", w = 1400, h = 860, mode = "stack" } = {}) {
   await view(w, h); await send("Page.navigate", { url: BASE }); await sleep(1200);
-  await ev(`localStorage.setItem("lang","${lang}"); localStorage.setItem("theme","${theme}"); document.documentElement.dataset.theme="${theme}"`);
+  await ev(`localStorage.setItem("lang","${lang}"); localStorage.setItem("theme","${theme}"); localStorage.setItem("groupMode","${mode}"); document.documentElement.dataset.theme="${theme}"`);
   await send("Page.navigate", { url: BASE }); await sleep(3200);
 }
 // click a button by aria-label or text; optionally restricted to the row/card that mentions `within`
@@ -72,6 +76,8 @@ await addIn("Environment variables"); await type('input[aria-label="Environment 
 await addIn("Volumes"); await type('input[aria-label="Volumes 1"]', "web_data:/usr/share/nginx/html:ro"); await sleep(300); await png("create");
 
 await open({ h: 1650 }); await click("Alerts"); await sleep(1500); await png("alerts");
+
+await open({ mode: "custom" }); await sleep(300); await png("custom-groups");
 
 await open();
 await ev(`for (const n of ["shop-web", "shop-api", "grafana"]) document.querySelector('input[aria-label="Select ' + n + '"]').click()`); await sleep(400); await png("groups");
@@ -111,6 +117,7 @@ if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0) {
   await click("24 h"); await sleep(1500); await esc();
   await ev(`for (const n of ["shop-api", "shop-db"]) document.querySelector('input[aria-label="Select ' + n + '"]').click()`); await sleep(1300); await click("Clear selection"); await sleep(500);
   await click("Details", "shop-api"); await sleep(1200); await click("Environment"); await sleep(1300); await click("Network"); await sleep(1200); await esc();
+  await click("My groups"); await sleep(1800); await click("Stack"); await sleep(900);
   await click("Compose"); await sleep(1300); await click("Events"); await sleep(2000); await click("Alerts"); await sleep(1800); await click("Disk"); await sleep(2400); await click("Containers"); await sleep(900);
   await click("Light theme"); await sleep(1400); await click("Change language"); await sleep(1600);
   rec = false; await recorder;

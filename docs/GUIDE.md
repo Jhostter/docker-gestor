@@ -95,7 +95,7 @@ Four summary cards on top: running containers, total CPU, memory in use and numb
 
 - **Search** (`/`): by name, image or stack.
 - **All / Running / Stopped**, with counts.
-- **Group by stack**: groups containers by Compose project; the rest go under “No stack”.
+- **Group by**: **Stack** (Compose projects; the rest go under “No stack”), **My groups** (your own, see below) or **None**.
 
 ### Each row
 
@@ -158,6 +158,20 @@ Containers are grouped by Compose stack (switch it off with *Group by stack*). E
 **Safety:** stopping, restarting and deleting several containers always asks first and lists their names; deleting also removes running containers but never their named volumes. Starting needs no confirmation. Acting on something already in the wanted state is not an error (a running container is simply skipped), and if one container fails the others still go ahead; failures are listed with Docker's reason. Group actions apply to the containers currently visible in that group, so a filter (e.g. *Stopped*) narrows what *Start all* does.
 
 > The **Compose** section is still the place for `up`, `down` and `pull`, which need the stack's `docker-compose.yml`.
+
+### Your own groups
+
+Next to the search box, **Group by** switches between **Stack** (Compose projects, the default), **My groups** and **None**. The choice is remembered.
+
+In **My groups** you decide how containers are organised, independently of Compose: for example *Frontend*, *Data* or *Experiments*.
+
+- **Create or fill a group:** select containers and press **Move to group…**. Type a new name or pick an existing one (names are case-insensitive: typing `frontend` joins `Frontend`). A container belongs to one group at a time.
+- **Remove from a group:** select the containers, press **Move to group…** and choose **Remove from group**.
+- **Rename:** the pencil in the group header. Renaming to an existing group **merges** the two.
+- **Dissolve:** the ✕ in the group header. **The containers are never touched**: they just stop belonging to the group.
+- A custom group works exactly like a stack: **start all / stop all / restart all** (with the same dependency-aware ordering when the containers come from Compose), selection and collapsing.
+
+Groups are stored on the server, **by container name**, so they survive recreating a container (typical with Compose) and are the same from any browser. There can be up to 50 groups with names of 1 to 40 characters. Assignments of containers that no longer exist are kept, so a stack you bring `down` and back `up` returns to its group.
 
 ### Container details
 
@@ -468,6 +482,7 @@ src/lib/history.ts            Sampling and SQLite queries
 src/lib/alerts-core.mjs       Alert rules and config validation (pure, unit-tested)
 src/lib/alerts.ts             Alert I/O: Docker watcher, Telegram, webhook, storage
 src/lib/groups-core.mjs        Group actions: validation and dependency ordering (pure, unit-tested)
+src/lib/groups.ts             Custom groups storage (SQLite, by container name)
 src/lib/inspect-core.mjs       Container details shaping and secret masking (pure, unit-tested)
 src/lib/disk-core.mjs         Disk usage analysis and cleanup validation (pure, unit-tested)
 src/lib/disk.ts               Disk report and per-item cleanup
@@ -484,6 +499,7 @@ src/app/api/**                REST API and SSE streams
 |---|---|---|
 | `/containers` | GET, POST | List / create and start |
 | `/containers/:id/:action` | POST | `start`, `stop`, `restart`, `remove` |
+| `/groups` | GET, PUT | Custom groups: read them; assign / unassign containers, rename or dissolve a group (one operation per request) |
 | `/containers/batch` | POST | Start / stop / restart / remove several containers, in dependency order when Compose provides it |
 | `/containers/:id/logs` | GET (SSE) | Live logs |
 | `/containers/:id/inspect` | GET | Container details; sensitive-looking values are omitted |
@@ -510,7 +526,7 @@ Connection errors answer `503` with a `code` (`docker_unreachable`, `docker_deni
 ```bash
 systemctl --user stop docker-gestor     # frees port 4455
 npm run dev                             # hot reload
-npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups
+npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups && npm run e2e:custom-groups
 ```
 
 No Docker at hand? Run the fake API: `node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &` then `DOCKER_SOCKET=/tmp/docker-mock.sock npm run dev`.

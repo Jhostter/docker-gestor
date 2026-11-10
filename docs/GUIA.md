@@ -100,7 +100,7 @@ La sección principal. Arriba hay cuatro tarjetas de resumen: contenedores en ma
 
 - **Buscar** (`/`): filtra por nombre, imagen o stack.
 - **Todos / Activos / Detenidos**: con el número de contenedores de cada grupo.
-- **Agrupar por stack**: reúne los contenedores por proyecto de Compose. Los que no pertenecen a ninguno van en «Sin stack».
+- **Agrupar por**: **Stack** (proyectos de Compose; los demás van en «Sin stack»), **Mis grupos** (los tuyos, ver más abajo) o **Nada**.
 
 ### Cada fila
 
@@ -165,6 +165,20 @@ Los contenedores se agrupan por stack de Compose (se desactiva con *Agrupar por 
 **Seguridad:** detener, reiniciar y eliminar varios contenedores siempre pregunta antes y lista sus nombres; eliminar también quita los que están en marcha pero nunca sus volúmenes con nombre. Iniciar no pide confirmación. Actuar sobre algo que ya está en el estado deseado no es un error (un contenedor en marcha simplemente se omite), y si uno falla los demás siguen adelante; los fallos se listan con el motivo de Docker. Las acciones de grupo se aplican a los contenedores visibles en ese grupo, así que un filtro (p. ej. *Detenidos*) acota lo que hace *Iniciar todos*.
 
 > La sección **Compose** sigue siendo el lugar para `up`, `down` y `pull`, que necesitan el `docker-compose.yml` del stack.
+
+### Tus propios grupos
+
+Junto al buscador, **Agrupar por** alterna entre **Stack** (proyectos de Compose, el valor por defecto), **Mis grupos** y **Nada**. La elección se recuerda.
+
+En **Mis grupos** organizas los contenedores como quieras, con independencia de Compose: por ejemplo *Frontend*, *Datos* o *Experimentos*.
+
+- **Crear o llenar un grupo:** selecciona contenedores y pulsa **Mover a grupo…**. Escribe un nombre nuevo o elige uno existente (los nombres no distinguen mayúsculas: escribir `frontend` entra en `Frontend`). Un contenedor pertenece a un solo grupo a la vez.
+- **Sacarlos de un grupo:** selecciona los contenedores, pulsa **Mover a grupo…** y elige **Quitar del grupo**.
+- **Renombrar:** el lápiz de la cabecera del grupo. Renombrar a un grupo que ya existe **los fusiona**.
+- **Disolver:** la ✕ de la cabecera del grupo. **Los contenedores nunca se tocan**: solo dejan de pertenecer al grupo.
+- Un grupo personalizado funciona igual que un stack: **iniciar todos / detener todos / reiniciar todos** (con el mismo orden por dependencias cuando los contenedores vienen de Compose), selección y plegado.
+
+Los grupos se guardan en el servidor, **por nombre de contenedor**, así que sobreviven a recrear un contenedor (lo habitual con Compose) y son los mismos desde cualquier navegador. Puede haber hasta 50 grupos con nombres de 1 a 40 caracteres. Se conservan las asignaciones de contenedores que ya no existen, de modo que un stack que bajas con `down` y vuelves a levantar regresa a su grupo.
 
 ### Detalles del contenedor
 
@@ -496,6 +510,7 @@ src/lib/history.ts            Muestreo y consultas SQLite
 src/lib/alerts-core.mjs       Reglas de alertas y validación (puro, con pruebas)
 src/lib/alerts.ts             E/S de alertas: vigilancia de Docker, Telegram, webhook, almacenamiento
 src/lib/groups-core.mjs        Acciones de grupo: validación y orden por dependencias (puro, con pruebas)
+src/lib/groups.ts             Almacenamiento de grupos personalizados (SQLite, por nombre de contenedor)
 src/lib/inspect-core.mjs       Detalles del contenedor y enmascarado de secretos (puro, con pruebas)
 src/lib/disk-core.mjs         Análisis de uso de disco y validación de limpieza (puro, con pruebas)
 src/lib/disk.ts               Informe de disco y limpieza elemento a elemento
@@ -513,6 +528,7 @@ src/app/api/**                API REST y flujos SSE
 |---|---|---|
 | `/containers` | GET, POST | Listar / crear e iniciar |
 | `/containers/:id/:action` | POST | `start`, `stop`, `restart`, `remove` |
+| `/groups` | GET, PUT | Grupos personalizados: leerlos; asignar / quitar contenedores, renombrar o disolver un grupo (una operación por petición) |
 | `/containers/batch` | POST | Inicia / detiene / reinicia / elimina varios contenedores, en orden de dependencias cuando Compose lo indica |
 | `/containers/:id/logs` | GET (SSE) | Logs en vivo |
 | `/containers/:id/inspect` | GET | Detalles del contenedor; se omiten los valores que parecen sensibles |
