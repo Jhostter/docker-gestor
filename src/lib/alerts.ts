@@ -6,7 +6,7 @@ import type { Readable } from "node:stream";
 import { docker } from "./docker";
 import { dataDir } from "./paths";
 import { addSampleHook, alertHistory, recordAlert, SAMPLE_MS } from "./history";
-import { AlertEngine, DEFAULTS, formatAlert, normalizeConfig, parseDockerEvent, publicConfig, type Alert, type AlertsConfig } from "./alerts-core.mjs";
+import { AlertEngine, DEFAULTS, addMute, cleanMutes, formatAlert, removeMute, ConfigError, normalizeConfig, parseDockerEvent, publicConfig, type Alert, type AlertsConfig } from "./alerts-core.mjs";
 
 /** Label shown in front of every message so you can tell machines apart (default: the hostname). */
 const hostLabel = () => process.env.ALERT_HOST ?? hostname();
@@ -36,7 +36,7 @@ function save(cfg: AlertsConfig) {
 function state(): State {
   if (g.__alerts) return g.__alerts;
   const s: State = { cfg: load(), listeners: new Set(), started: false, watching: false, backoff: 3000, lastSeen: Math.floor(Date.now() / 1000), status: { telegram: {}, webhook: {} }, engine: undefined as unknown as AlertEngine };
-  s.engine = new AlertEngine({ getConfig: () => s.cfg, emit: (a) => void dispatch(a), sampleMs: SAMPLE_MS });
+  s.engine = new AlertEngine({ getConfig: () => s.cfg, emit: (a) => void dispatch(a), sampleMs: SAMPLE_MS, ...(process.env.ALERT_STABLE_SECONDS ? { stableMs: Number(process.env.ALERT_STABLE_SECONDS) * 1000 } : {}) }); // the override is for tests
   return (g.__alerts = s);
 }
 
@@ -144,6 +144,19 @@ export function updateConfig(input: unknown) {
   const s = state();
   s.cfg = normalizeConfig(input, s.cfg); // throws ConfigError on bad input; nothing is saved then
   save(s.cfg); apply(s);
+}
+/** Silences alerts for a container or a whole Compose stack: `minutes` null = until removed. */
+export function muteAlerts(kind: "container" | "stack", name: string, minutes: number | null) {
+  const s = state();
+  if ((kind !== "container" && kind !== "stack") || typeof name !== "string" || !name.trim() || name.length > 200) throw new ConfigError("invalid_mute");
+  if (minutes !== null && !(Number.isFinite(minutes) && minutes >= 1 && minutes <= 525600)) throw new ConfigError("invalid_mute");
+  s.cfg = { ...s.cfg, mutes: addMute(cleanMutes(s.cfg.mutes), { kind, name: name.trim(), minutes }) };
+  save(s.cfg);
+}
+export function unmuteAlerts(kind: "container" | "stack", name: string) {
+  const s = state();
+  s.cfg = { ...s.cfg, mutes: removeMute(cleanMutes(s.cfg.mutes), { kind, name }) };
+  save(s.cfg);
 }
 export function subscribe(fn: (a: Delivered) => void) { const s = state(); s.listeners.add(fn); return () => { s.listeners.delete(fn); }; }
 export const history = (limit?: number) => alertHistory(limit);

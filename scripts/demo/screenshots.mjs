@@ -45,10 +45,11 @@ const key = (k) => send("Input.dispatchKeyEvent", { type: "keyDown", key: k, cod
 const png = async (name) => { const r = await send("Page.captureScreenshot", { format: "png" }); writeFileSync(join(OUT, `${name}.png`), Buffer.from(r.result.data, "base64")); console.log("  ", name + ".png"); };
 
 const view = (w, h) => send("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile: w < 600 });
-async function open({ lang = "en", theme = "dark", w = 1400, h = 860, mode = "stack", density = "comfortable" } = {}) {
+async function open({ lang = "en", theme = "dark", w = 1400, h = 860, mode = "stack", density = "comfortable", sort = "default", trend = false } = {}) {
   await view(w, h); await send("Page.navigate", { url: BASE }); await sleep(1200);
-  await ev(`localStorage.setItem("lang","${lang}"); localStorage.setItem("theme","${theme}"); localStorage.setItem("groupMode","${mode}"); localStorage.setItem("density","${density}"); document.documentElement.dataset.theme="${theme}"`);
+  await ev(`localStorage.setItem("lang","${lang}"); localStorage.setItem("theme","${theme}"); localStorage.setItem("groupMode","${mode}"); localStorage.setItem("density","${density}"); localStorage.setItem("sortBy","${sort}"); document.documentElement.dataset.theme="${theme}"`);
   await send("Page.navigate", { url: BASE }); await sleep(3200);
+  if (trend) await sleep(10500); // the trend lines need two usage samples, 10 s apart
 }
 // click a button by aria-label or text; optionally restricted to the row/card that mentions `within`
 const click = (label, within) => ev(`(() => { const all=[...document.querySelectorAll('button,a')].filter(e=>e.getAttribute('aria-label')===${JSON.stringify(label)}||e.textContent.trim()===${JSON.stringify(label)}||e.textContent.trim().startsWith(${JSON.stringify(label)}));
@@ -64,12 +65,15 @@ const escKey = async () => { const b = { key: "Escape", code: "Escape", windowsV
 const esc = async () => { await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`); await sleep(350); };
 
 console.log("Screenshots →", OUT);
-await open(); await png("containers-dark");
+await open({ trend: true }); await png("containers-dark");
 await open(); await ev(`document.querySelector('button[aria-label^="More actions: shop-db"]').click()`); await sleep(400); await png("row-menu");
 await open(); await ctrlK(); await ev(`document.querySelector('[role=combobox]').focus()`); await send("Input.insertText", { text: "logs api" }); await sleep(500); await png("palette");
 await open({ density: "compact" }); await png("containers-compact");
-await open({ theme: "light" }); await png("containers-light");
-await open({ lang: "es" }); await png("containers-es");
+await open({ theme: "light", trend: true }); await png("containers-light");
+await open({ lang: "es", trend: true }); await png("containers-es");
+await open({ mode: "none", sort: "cpu", trend: true }); await png("metrics");
+await open(); await ev(`document.querySelector('button[aria-label^="More actions: shop-api"]').click()`); await sleep(350); await ev(`[...document.querySelectorAll('[role=menuitem]')].find(i=>i.innerText.trim()==="Silence alerts…").click()`); await sleep(500); await png("mute");
+await escKey();
 
 await open(); await click("View logs", "shop-api"); await sleep(2600); await png("logs"); await esc();
 
@@ -82,7 +86,11 @@ await addIn("Ports"); await type('input[aria-label="Ports 1"]', "8080:80");
 await addIn("Environment variables"); await type('input[aria-label="Environment variables 1"]', "TZ=Europe/Madrid");
 await addIn("Volumes"); await type('input[aria-label="Volumes 1"]', "web_data:/usr/share/nginx/html:ro"); await sleep(300); await png("create");
 
-await open({ h: 1650 }); await click("Alerts"); await sleep(1500); await png("alerts");
+await open({ h: 2100 });
+await ev(`fetch("/api/alerts/mute",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind:"container",name:"shop-worker",minutes:480})}).then(()=>fetch("/api/alerts/mute",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({kind:"stack",name:"monitoring",minutes:null})}))`); await sleep(400);
+await open({ h: 2100 }); // reload so the page sees the silences created above
+await click("Alerts"); await sleep(1800); await png("alerts");
+await ev(`Promise.all([{kind:"container",name:"shop-worker"},{kind:"stack",name:"monitoring"}].map((b)=>fetch("/api/alerts/mute",{method:"DELETE",headers:{"content-type":"application/json"},body:JSON.stringify(b)})))`); await sleep(300);
 
 await open({ mode: "custom" }); await sleep(300); await png("custom-groups");
 

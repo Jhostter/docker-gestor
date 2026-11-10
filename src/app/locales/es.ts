@@ -70,6 +70,20 @@ export const es = {
   err_invalid_telegram_token: "El token de Telegram no tiene el formato correcto (123456:ABC…).", err_invalid_telegram_chat: "El ID de chat debe ser un número (o @canal).",
   err_telegram_incomplete: "Telegram necesita token e ID de chat.", err_invalid_webhook_url: "La URL del webhook debe empezar por http:// o https://.", err_webhook_incomplete: "El webhook necesita una URL.",
   err_invalid_authorization: "La cabecera Authorization no es válida.", err_alert_test_failed: "Falló la prueba: {reason}",
+  // Alertas: recuperación, exclusiones, silencios
+  al_recovery: "Avisar cuando se resuelve", al_recovery_h: "Un mensaje «vuelve a estar bien» cuando termina un problema que ya te avisamos: salud recuperada, contenedor estable de nuevo, CPU o memoria normales. Nunca llega sin un aviso previo.",
+  al_exclude: "Ignorar contenedores", al_exclude_ph: "nombres separados por comas", al_rule_cooldown: "Repetir cada (min)", al_rule_cooldown_ph: "global",
+  al_b_back_up: "En marcha", al_b_cpu_ok: "CPU normal", al_b_memory_ok: "Memoria normal",
+  al_mutes: "Silenciadas", al_mutes_hint: "No avisan por ningún canal mientras dure el silencio.", al_mutes_empty: "No hay nada silenciado.",
+  al_mute_kind_container: "Contenedor", al_mute_kind_stack: "Stack", al_mute_until: "hasta las {time}", al_mute_forever: "hasta que lo reactives", al_unmute: "Reactivar",
+  al_mute_add: "Silenciar", al_mute_name_ph: "nombre del contenedor o del stack",
+  mute_title: "Silenciar alertas de {name}", mute_for: "Durante", mute_1h: "1 hora", mute_8h: "8 horas", mute_24h: "24 horas", mute_forever: "Hasta que lo reactive",
+  mute_scope: "Qué silenciar", mute_this: "Solo este contenedor", mute_stack: "Todo el stack «{stack}»", mute_btn: "Silenciar",
+  act_mute: "Silenciar alertas…", act_unmute: "Reactivar alertas", muted_badge: "Alertas silenciadas", mute_done: "Alertas de {name} silenciadas", unmute_done: "Alertas de {name} reactivadas", al_h_mute: "Silenciar {name}",
+  err_invalid_mute: "No se pudo silenciar: nombre o duración no válidos.",
+  // Métricas
+  m_top: "Mayor: {name} · {value}", m_of_host: "de {total}", m_trend_cpu: "Tendencia de CPU de los últimos minutos", m_trend_mem: "Tendencia de memoria de los últimos minutos",
+  col_container: "Contenedor", col_state: "Estado", sort_by: "Ordenar por {col}",
   // Disco
   tab_disk: "Disco", dk_intro: "Muestra cuánto espacio usa Docker y qué se puede eliminar. No se borra nada hasta que lo elijas y lo confirmes; Docker se niega a borrar lo que está en uso.",
   dk_analyze: "Analizar de nuevo", dk_measuring: "Midiendo el uso de disco… puede tardar unos segundos si hay mucho contenido.", dk_using: "Docker usa {size}", dk_reclaim_total: "Se podrían liberar unos {size} (estimación)",

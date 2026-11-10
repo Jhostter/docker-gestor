@@ -132,7 +132,16 @@ La sección principal. Arriba hay cuatro tarjetas de resumen: contenedores en ma
 | Nombre e imagen | Haz clic en el nombre para ver los detalles; pasa el ratón para ver el texto completo |
 | Puertos `:8080:80 ↗` | Puertos publicados como etiquetas. Los TCP son clicables y abren `http://localhost:<puerto>` en otra pestaña |
 | Insignia de estado | 🟢 En marcha · 🟡 Arrancando / pausado · 🔴 *unhealthy* (falla su comprobación de salud) · ⚪ Detenido |
-| CPU y RAM | Uso actual, con barra. Se actualiza cada 10 s y solo mientras estás en esta sección |
+| CPU y RAM | Uso actual, con barra y una **mini-gráfica de los últimos minutos** (la cifra se pone ámbar por encima del 60 % y roja por encima del 85 %). Se actualiza cada 10 s y solo mientras estás en esta sección. En vista compacta solo ves las cifras |
+| 🔕 | Aparece junto al nombre cuando sus alertas están silenciadas (ver [Alertas](#10-alertas)) |
+
+### Consumo de un vistazo
+
+![Contenedores ordenados por CPU](img/metrics.png)
+
+- **Las tarjetas de arriba** resumen el conjunto: contenedores en marcha (con barra), **CPU total** con su tendencia y el contenedor que más gasta, y **memoria** usada frente a la RAM del equipo, también con el que más consume. Hasta que carga la lista no muestran nada a medias.
+- **Ordenar por consumo:** pulsa los títulos **Contenedor**, **CPU** o **RAM** de la tabla. Los que más gastan van primero y los detenidos al final; pulsa de nuevo el título activo para volver al orden de Docker. Se recuerda entre visitas y funciona dentro de cada grupo.
+- **Las tendencias empiezan al abrir la página:** se dibujan con las muestras que toma la propia página (una cada 10 s, hasta unos 5 minutos), así que tardan unos 20 s en aparecer. Para ver más historia usa la [gráfica de consumo](#gráfica-de-consumo).
 
 ### Acciones de la fila
 
@@ -323,12 +332,42 @@ Las alertas te avisan cuando algo va mal, para que no tengas que dejar la págin
 |---|---|
 | **Un contenedor se cae** | Termina con un código distinto de 0 **sin que lo hayas detenido tú** |
 | **Sin memoria (OOM)** | El sistema lo detiene por falta de memoria |
-| **No saludable** | Falla su comprobación de salud (y llega un aviso de «vuelve a estar saludable» al recuperarse) |
+| **No saludable** | Falla su comprobación de salud |
 | **Reinicios en bucle** | Se cae N veces en M minutos (por defecto 3 en 10) |
 | **CPU alta** *(desactivada por defecto)* | Se mantiene por encima de X % durante M minutos (por defecto 90 % durante 5) |
 | **Memoria alta** *(desactivada por defecto)* | Se mantiene por encima de X % de su límite de memoria durante M minutos (por defecto 90 % durante 2). Sin límite, el porcentaje es sobre la RAM del equipo |
 
 **Sin ruido:** un `stop`, `restart` o eliminación que hagas tú (desde esta interfaz o desde la línea de comandos) se reconoce y se ignora. La misma alerta para el mismo contenedor no se repite durante el tiempo de **espera** (10 minutos por defecto; 0 lo desactiva).
+
+![Alertas con reglas, silencios y canales](img/alerts.png)
+
+#### Cuando el problema termina
+
+Con **Avisar cuando se resuelve** (activado por defecto) llega un mensaje «🟢 …» al acabar un problema **del que ya te avisamos**:
+
+| Aviso | Cuándo llega |
+|---|---|
+| `recovered` — «vuelve a estar saludable» | Su comprobación de salud pasa de *unhealthy* a *healthy* |
+| `back_up` — «vuelve a estar en marcha» | Tras una caída o un OOM, el contenedor lleva **30 s seguidos** en marcha. Si se cae otra vez antes, no hay aviso: un bucle de reinicios nunca «se recupera» |
+| `cpu_ok` / `memory_ok` — «CPU de nuevo al 12 %» | Dos muestras seguidas por debajo del umbral después de un aviso de CPU o memoria altas |
+
+Nunca llega un «todo bien» sin un aviso previo: si el aviso estaba silenciado, excluido o desactivado, tampoco se avisa de que terminó. Los avisos de recuperación ignoran la espera (no los frena un aviso reciente).
+
+#### Silenciar
+
+Para un mantenimiento no hace falta apagar las alertas: **silencia solo lo que toca**.
+
+- Desde la fila: menú **⋯ → Silenciar alertas…**. Elige si es **solo ese contenedor** o **todo su stack**, y **1 hora, 8 horas, 24 horas o hasta que lo reactives**. Los contenedores silenciados llevan una campana tachada (🔕), y el mismo menú ofrece **Reactivar alertas**.
+- Desde **Alertas → Silenciadas**: lista todo lo que está en silencio, con cuándo termina y un botón **Reactivar**; también puedes silenciar por nombre (un contenedor o un stack). En el **Historial**, cada fila tiene una campana para silenciar ese contenedor 1 hora.
+- Un silencio vale para **todas las reglas y todos los canales**, empieza y termina al instante (no hay que pulsar *Guardar cambios*) y caduca solo. Silenciar un stack cubre todos sus contenedores, incluso los detenidos.
+- Se guardan en `alerts.json`; guardar las reglas desde el formulario nunca los quita.
+
+#### Ignorar contenedores y espera por regla
+
+Cada regla activada tiene dos opciones extra:
+
+- **Ignorar contenedores:** nombres separados por comas que esa regla no vigila (por ejemplo, un contenedor de pruebas que se cae a propósito, sin dejar de vigilar su consumo).
+- **Repetir cada (min):** su propio tiempo de espera. Vacío = el general; `0` = nunca suprimir. La espera ya era independiente para cada regla y contenedor; ahora además puedes darle un valor distinto a cada regla.
 
 ### Canales
 
@@ -348,7 +387,7 @@ Las alertas te avisan cuando algo va mal, para que no tengas que dejar la págin
 }
 ```
 
-`event` es uno de `died`, `oom`, `unhealthy`, `recovered`, `restartLoop`, `cpu`, `memory`, `test`. Usa **Enviar prueba** (tras guardar) para comprobar un canal; la sección muestra el último error o el último envío correcto de cada uno.
+`event` es uno de `died`, `oom`, `unhealthy`, `recovered`, `back_up`, `restartLoop`, `cpu`, `cpu_ok`, `memory`, `memory_ok`, `test`. Usa **Enviar prueba** (tras guardar) para comprobar un canal; la sección muestra el último error o el último envío correcto de cada uno.
 
 Los mensajes usan el idioma elegido en la interfaz y empiezan por el nombre del equipo, para distinguir varios ordenadores. Cambia esa etiqueta con `ALERT_HOST`.
 

@@ -1,10 +1,11 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, post, postStream, bytes, ago } from "./format";
+import { api, post, postStream, bytes, ago, isMutedNow, type Mute } from "./format";
+import { emptySeries, hostMemory, pushSeries, sortContainers, topConsumer, type Series, type SeriesStore } from "./metrics-core.mjs";
 import { useT, setLang, hasKey, type Key } from "./i18n";
 import { planMove } from "../lib/groups-core.mjs";
-import { Badge, Btn, Card, Chips, Empty, Icon, ListSkeleton, Menu, Meter, Modal, SearchBox, Spinner, UIProvider, useUI } from "./ui";
+import { Badge, Btn, Card, Chips, Empty, Icon, ListSkeleton, Menu, Meter, Modal, SearchBox, Spark, Spinner, UIProvider, useUI } from "./ui";
 
 type Container = { id: string; name: string; image: string; state: string; status: string; ports: string[]; project: string | null };
 type Image = { id: string; tags: string[]; size: number; created: number };
@@ -19,13 +20,14 @@ type StreamEv =
   | { t: "done"; results: BatchResult[]; cancelled: boolean }
   | { t: "error"; error: string };
 type Progress = { action: BatchAction; layers: { id: string; name: string }[][]; items: Record<string, { state: string; dep?: string; waited?: number; max?: number }>; cancelling: boolean; cancel: () => void };
-type Stat = { id: string; cpu: number; mem: number; limit: number };
+type Stat = { id: string; name?: string; cpu: number; mem: number; limit: number };
 
 const Terminal = dynamic(() => import("./Terminal"), { ssr: false });
 const HistoryChart = dynamic(() => import("./HistoryChart"), { ssr: false });
 const CreateForm = dynamic(() => import("./CreateForm"), { ssr: false });
 const Logs = dynamic(() => import("./Logs"), { ssr: false });
 const AlertsView = dynamic(() => import("./Alerts"), { ssr: false });
+const MuteDialog = dynamic(() => import("./Alerts").then((m) => m.MuteDialog), { ssr: false });
 const DiskView = dynamic(() => import("./Disk"), { ssr: false });
 const Detail = dynamic(() => import("./Detail"), { ssr: false });
 const Palette = dynamic(() => import("./Palette"), { ssr: false });
@@ -56,6 +58,7 @@ function App() {
   const [stacks, setStacks] = useState<Stack[] | null>(null);
   const [networks, setNetworks] = useState<Network[] | null>(null);
   const [stats, setStats] = useState<Record<string, Stat>>({});
+  const [series, setSeries] = useState<SeriesStore>(emptySeries());
   const [events, setEvents] = useState<Ev[]>([]);
   const [online, setOnline] = useState<boolean | null>(null);
   const [dockerDown, setDockerDown] = useState(false);
@@ -114,7 +117,7 @@ function App() {
 
   const loadStats = useCallback(() => {
     if (document.hidden || tabRef.current !== "containers") return;
-    fresh("stats", () => api<Stat[]>("/api/stats"), (l) => setStats(Object.fromEntries(l.map((x) => [x.id, x])))).catch(() => {});
+    fresh("stats", () => api<Stat[]>("/api/stats"), (l) => { setStats(Object.fromEntries(l.map((x) => [x.id, x]))); setSeries((p) => pushSeries(p, l)); }).catch(() => {});
   }, [fresh]);
 
   // One stream of Docker events feeds the Events tab and keeps every list current. It reconnects by itself (an EventSource
@@ -285,7 +288,7 @@ function App() {
         <h2 className="mb-4 text-xl font-semibold">{t(tabKey(tab))}</h2>
         {online !== false && dockerDown && <div role="alert" className="mb-4 rounded-lg border border-warn/40 bg-warn/10 p-3 text-sm text-warn">{t("dkr_down")}</div>}
         {online === false && <div role="alert" className="mb-4 rounded-lg border border-bad/40 bg-bad/10 p-3 text-sm text-bad">{t("lost_banner")} <code>systemctl --user status docker-gestor</code>.</div>}
-        {tab === "containers" && <ContainersView {...{ containers, stats, busy, search, setSearch, searchRef, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail, running, assignments, setAssignments, customGroups, reloadGroups }} />}
+        {tab === "containers" && <ContainersView {...{ containers, stats, series, mutes: alertsCfg?.mutes, reloadAlerts, busy, search, setSearch, searchRef, ctl, del, openCreate, batch, setLogs, setTerm, setChart, setDetail, running, assignments, setAssignments, customGroups, reloadGroups }} />}
         {tab === "compose" && <ComposeView {...{ stacks, busy, run, confirm, setOutput, goTo: (name: string) => { setTab("containers"); setTimeout(() => setSearch(name), 0); } }} />}
         {tab === "images" && <ImagesView {...{ images, containers, busy, run, confirm, search, setSearch, searchRef }} />}
         {tab === "volumes" && <VolumesView {...{ volumes, busy, run, confirm, search, setSearch, searchRef }} />}
@@ -317,19 +320,23 @@ function App() {
 /* ================= Containers ================= */
 type BatchAction = "start" | "stop" | "restart" | "remove";
 type CV = {
-  containers: Container[] | null; stats: Record<string, Stat>; busy: Set<string>; search: string; setSearch: (s: string) => void; searchRef: React.Ref<HTMLInputElement>; running: number;
+  containers: Container[] | null; stats: Record<string, Stat>; series: SeriesStore; mutes?: Mute[]; reloadAlerts: () => Promise<void>; busy: Set<string>; search: string; setSearch: (s: string) => void; searchRef: React.Ref<HTMLInputElement>; running: number;
   ctl: (c: Container, a: "start" | "stop" | "restart") => void; del: (c: Container) => void; openCreate: () => void; batch: (a: BatchAction, cs: Container[], key: string) => Promise<boolean>;
   assignments: Record<string, string>; setAssignments: (a: Record<string, string>) => void; customGroups: { name: string; count: number }[]; reloadGroups: () => Promise<void>;
   setLogs: (c: Container) => void; setTerm: (c: Container) => void; setChart: (c: Container) => void; setDetail: (c: Container) => void;
 };
 const loadCollapsed = (): Set<string> => { try { return new Set(JSON.parse(localStorage.getItem("collapsedGroups") ?? "[]")); } catch { return new Set(); } };
 
-function ContainersView({ containers, stats, busy, search, setSearch, searchRef, running, ctl, del, openCreate, batch, assignments, setAssignments, customGroups, reloadGroups, setLogs, setTerm, setChart, setDetail }: CV) {
+function ContainersView({ containers, stats, series, mutes, reloadAlerts, busy, search, setSearch, searchRef, running, ctl, del, openCreate, batch, assignments, setAssignments, customGroups, reloadGroups, setLogs, setTerm, setChart, setDetail }: CV) {
   const { t } = useT();
   const { toast, confirm, prompt } = useUI();
   const [filter, setFilter] = useState<"all" | "up" | "down">("all");
   const [mode, setModeState] = useState<"stack" | "custom" | "none">("stack");
   const [moving, setMoving] = useState(false);
+  const [muting, setMuting] = useState<Container | null>(null);
+  const [sortBy, setSortState] = useState<"default" | "name" | "cpu" | "mem">("default");
+  const setSort = (v: "name" | "cpu" | "mem") => setSortState((cur) => { const n = cur === v ? "default" : v; try { localStorage.setItem("sortBy", n); } catch {} return n; }); // the active column again = back to Docker's order
+  useEffect(() => { try { const v = localStorage.getItem("sortBy"); if (v === "name" || v === "cpu" || v === "mem") setSortState(v); } catch {} }, []);
   const [compact, setCompactState] = useState(false);
   const setCompact = (v: boolean) => { setCompactState(v); try { localStorage.setItem("density", v ? "compact" : "comfortable"); } catch {} };
   useEffect(() => { try { setCompactState(localStorage.getItem("density") === "compact"); } catch {} }, []);
@@ -344,10 +351,19 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
   const all = containers ?? [];
   const list = useMemo(() => {
     const q = search.toLowerCase();
-    return all.filter((c) => (filter === "all" || (filter === "up") === (c.state === "running")) && (!q || `${c.name} ${c.image} ${c.project ?? ""}`.toLowerCase().includes(q)));
-  }, [all, filter, search]);
+    return sortContainers(all.filter((c) => (filter === "all" || (filter === "up") === (c.state === "running")) && (!q || `${c.name} ${c.image} ${c.project ?? ""}`.toLowerCase().includes(q))), stats, sortBy);
+  }, [all, filter, search, stats, sortBy]);
   const live = Object.values(stats);
   const cpu = live.reduce((a, s) => a + s.cpu, 0), mem = live.reduce((a, s) => a + s.mem, 0);
+  const ready = containers !== null; // usage often arrives before the list: show nothing derived from it until the cards can be complete
+  const topCpu = ready ? topConsumer(stats, "cpu") : null, topMem = ready ? topConsumer(stats, "mem") : null, host = ready ? hostMemory(stats) : 0;
+  const unmute = async (c: Container) => {
+    const hits = (mutes ?? []).filter((m) => (m.until === null || m.until > Date.now()) && (m.kind === "container" ? m.name === c.name : !!c.project && m.name === c.project));
+    try {
+      for (const m of hits) await api("/api/alerts/mute", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: m.kind, name: m.name }) });
+      toast("ok", t("unmute_done", { name: hits.map((m) => m.name).join(", ") || c.name })); await reloadAlerts();
+    } catch (e) { toast("error", (e as Error).message); }
+  };
   const groups = useMemo(() => {
     if (!group) return [["", list] as const];
     const m = new Map<string, Container[]>();
@@ -392,9 +408,25 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
   return (
     <section aria-label={t("tab_containers")} className="space-y-4 pb-14">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {[[t("stat_running"), `${running}`, t("stat_of", { n: all.length })], [t("stat_cpu"), live.length ? cpu.toFixed(1) + "%" : "–", t("stat_active")], [t("stat_mem"), live.length ? bytes(mem) : "–", t("stat_in_use")], [t("stat_stacks"), `${new Set(all.map((c) => c.project).filter(Boolean)).size}`, t("stat_compose")]].map(([title, v, s]) => (
-          <Card key={title} className="p-3"><p className="text-xs text-muted">{title}</p><p className="text-2xl font-semibold tabular-nums">{containers ? v : "…"}</p><p className="text-xs text-muted">{s}</p></Card>
-        ))}
+        <Card className="p-3">
+          <p className="text-xs text-muted">{t("stat_running")}</p>
+          <p className="text-2xl font-semibold tabular-nums">{containers ? running : "…"}</p>
+          <p className="mb-1.5 text-xs text-muted">{t("stat_of", { n: all.length })}</p>
+          {containers && <Meter value={running} max={all.length || 1} plain label={t("stat_running")} />}
+        </Card>
+        <Card className="p-3">
+          <p className="text-xs text-muted">{t("stat_cpu")}</p>
+          <p className="text-2xl font-semibold tabular-nums">{containers ? (live.length ? cpu.toFixed(1) + "%" : "–") : "…"}</p>
+          <div className="my-1 text-accent"><Spark values={ready ? series.total.cpu : []} label={t("m_trend_cpu")} /></div>
+          <p className="truncate text-xs text-muted" title={topCpu?.name}>{topCpu ? t("m_top", { name: topCpu.name, value: topCpu.value.toFixed(1) + "%" }) : t("stat_active")}</p>
+        </Card>
+        <Card className="p-3">
+          <p className="text-xs text-muted">{t("stat_mem")}</p>
+          <p className="text-2xl font-semibold tabular-nums">{containers ? (live.length ? bytes(mem) : "–") : "…"}{host > 0 && live.length > 0 && <>{" "}<span className="ml-0.5 text-xs font-normal text-muted">{t("m_of_host", { total: bytes(host) })}</span></>}</p>
+          <div className="my-1">{host > 0 && live.length > 0 ? <Meter value={mem} max={host} label={t("mem_use")} /> : <Spark values={ready ? series.total.mem : []} zoom label={t("m_trend_mem")} className="text-accent" />}</div>
+          <p className="truncate text-xs text-muted" title={topMem?.name}>{topMem ? t("m_top", { name: topMem.name, value: bytes(topMem.value) }) : t("stat_in_use")}</p>
+        </Card>
+        <Card className="p-3"><p className="text-xs text-muted">{t("stat_stacks")}</p><p className="text-2xl font-semibold tabular-nums">{containers ? `${new Set(all.map((c) => c.project).filter(Boolean)).size}` : "…"}</p><p className="text-xs text-muted">{t("stat_compose")}</p></Card>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <input type="checkbox" aria-label={t("grp_select_all")} title={t("grp_select_all")} checked={list.length > 0 && list.every((c) => selected.has(c.id))} onChange={(e) => setMany(list, e.target.checked)} ref={(el) => { if (el) el.indeterminate = list.some((c) => selected.has(c.id)) && !list.every((c) => selected.has(c.id)); }} />
@@ -441,7 +473,8 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
               )}
               {!folded && (
                 <Card className="divide-y divide-line overflow-hidden">
-                  {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], busy: busy.has(c.id), checked: selected.has(c.id), toggle: () => toggle(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} handle={mode === "custom" ? dragHandle(c) : undefined} dragging={!!drag && drag.includes(c.name)} compact={compact} />)}
+                  <ColumnHeads sortBy={sortBy} setSort={setSort} />
+                  {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], series: series.byId[c.id], muted: isMutedNow(mutes, c.name, c.project), onMute: () => setMuting(c), onUnmute: () => unmute(c), busy: busy.has(c.id), checked: selected.has(c.id), toggle: () => toggle(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} handle={mode === "custom" ? dragHandle(c) : undefined} dragging={!!drag && drag.includes(c.name)} compact={compact} />)}
                 </Card>
               )}
             </div>
@@ -467,6 +500,7 @@ function ContainersView({ containers, stats, busy, search, setSearch, searchRef,
           </div>
         </div>
       )}
+      {muting && <MuteDialog name={muting.name} project={muting.project} onClose={() => setMuting(null)} onDone={reloadAlerts} />}
       {moving && <MoveDialog names={picked.map((c) => c.name)} groups={customGroups} current={picked.map((c) => assignments[c.name]).filter(Boolean)} onClose={() => setMoving(false)}
         onDone={async () => { setMoving(false); setSelected(new Set()); setMode("custom"); await reloadGroups(); toast("ok", t("grp_saved")); }} />}
     </section>
@@ -537,7 +571,23 @@ function MoveDialog({ names, groups, current, onClose, onDone }: { names: string
   );
 }
 
-function Row({ c, s, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart, setDetail, handle, dragging, compact }: { compact?: boolean; handle?: { onStart: (e: React.DragEvent) => void; onEnd: () => void }; dragging?: boolean; c: Container; s?: Stat; busy: boolean; checked: boolean; toggle: () => void; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
+const COLS = "md:grid-cols-[1.25rem_minmax(0,2.4fr)_minmax(0,1.3fr)_8rem_8rem_auto]";
+const heat = (pct: number) => (pct > 85 ? "text-bad" : pct > 60 ? "text-warn" : "text-accent"); // the same thresholds as the bars
+/** Column titles; Name, CPU and RAM sort the list (the active one again goes back to Docker's order). */
+function ColumnHeads({ sortBy, setSort }: { sortBy: string; setSort: (v: "name" | "cpu" | "mem") => void }) {
+  const { t } = useT();
+  const head = (id: "name" | "cpu" | "mem", label: string) => (
+    <button type="button" onClick={() => setSort(id)} aria-pressed={sortBy === id} aria-label={t("sort_by", { col: label })} title={t("sort_by", { col: label })}
+      className={`inline-flex items-center gap-1 justify-self-start rounded px-1 -mx-1 uppercase tracking-wide hover:text-fg ${sortBy === id ? "text-accent" : ""}`}>{label}{sortBy === id && <Icon name="down" className="size-3" />}</button>
+  );
+  return (
+    <div className={`hidden gap-x-4 border-l-[3px] border-l-transparent bg-surface2/40 px-4 py-1.5 text-[11px] font-semibold text-muted md:grid ${COLS}`}>
+      <span />{head("name", t("col_container"))}<span className="uppercase tracking-wide">{t("col_state")}</span>{head("cpu", t("cpu"))}{head("mem", t("ram"))}<span />
+    </div>
+  );
+}
+
+function Row({ c, s, series, muted, onMute, onUnmute, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart, setDetail, handle, dragging, compact }: { series?: Series; muted?: boolean; onMute: () => void; onUnmute: () => void; compact?: boolean; handle?: { onStart: (e: React.DragEvent) => void; onEnd: () => void }; dragging?: boolean; c: Container; s?: Stat; busy: boolean; checked: boolean; toggle: () => void; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
   const { t } = useT();
   const up = c.state === "running";
   const tone = up ? (/unhealthy/.test(c.status) ? "bad" : /starting/.test(c.status) ? "warn" : "ok") : c.state === "exited" || c.state === "created" ? "muted" : "warn";
@@ -547,7 +597,7 @@ function Row({ c, s, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart
       ? <a key={p} href={`http://localhost:${hostPort(p)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded bg-surface2 px-1.5 py-0.5 text-xs text-accent hover:underline" title={t("open_url", { port: hostPort(p) })}>:{p.replace("/tcp", "")}<Icon name="link" className="size-3" /></a>
       : <span key={p} className="rounded bg-surface2 px-1.5 py-0.5 text-xs text-muted">:{p}</span>)}</span>);
   return (
-    <div className={`grid items-center gap-x-4 gap-y-1 border-l-[3px] px-4 md:grid-cols-[1.25rem_minmax(0,2.4fr)_minmax(0,1.3fr)_6.5rem_6.5rem_auto] ${compact ? "py-1.5" : "py-3"} ${stripe} ${dragging ? "opacity-40" : ""}`}>
+    <div className={`grid items-center gap-x-4 gap-y-1 border-l-[3px] px-4 ${COLS} ${compact ? "py-1.5" : "py-3"} ${stripe} ${dragging ? "opacity-40" : ""}`}>
       <div className="flex flex-col items-start gap-1.5 md:items-center">
         <input type="checkbox" checked={checked} onChange={toggle} aria-label={t("grp_row_select", { name: c.name })} />
         {handle && <span draggable onDragStart={handle.onStart} onDragEnd={handle.onEnd} title={t("dnd_handle")} aria-label={t("dnd_handle")} data-drag-handle={c.name} className="-my-0.5 cursor-grab select-none rounded p-0.5 text-muted hover:bg-surface2 hover:text-fg active:cursor-grabbing"><Icon name="grip" className="size-5" /></span>}
@@ -555,14 +605,26 @@ function Row({ c, s, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart
       <div className="min-w-0">
         <div className="flex min-w-0 items-center gap-2">
           <button onClick={() => setDetail(c)} className="block min-w-0 truncate text-left font-semibold hover:text-accent hover:underline" title={`${c.name} — ${t("act_details")}`}>{c.name}</button>
+          {muted && <span title={t("muted_badge")} className="shrink-0 text-muted"><Icon name="bell-off" className="size-3.5" /><span className="sr-only">{t("muted_badge")}</span></span>}
           {compact && ports}
         </div>
         {!compact && <p className="truncate text-xs text-muted" title={c.image}>{c.image}</p>}
         {!compact && c.ports.length > 0 && <div className="mt-1">{ports}</div>}
       </div>
       <div className="min-w-0"><Badge tone={tone}>{up ? t("badge_running") : c.state === "exited" ? t("badge_stopped") : c.state}</Badge>{!compact && <p className="mt-0.5 truncate text-xs text-muted" title={c.status}>{c.status}</p>}</div>
-      <div className="text-xs"><span className="text-muted">{t("cpu")} </span><span className="tabular-nums">{s ? s.cpu.toFixed(1) + "%" : "–"}</span>{!compact && <Meter value={s?.cpu ?? 0} label={t("cpu_use")} />}</div>
-      <div className="text-xs"><span className="text-muted">{t("ram")} </span><span className="tabular-nums">{s ? bytes(s.mem) : "–"}</span>{!compact && <Meter value={s?.mem ?? 0} max={s?.limit || 1} label={t("mem_use")} />}</div>
+      {(() => {
+        const cpuPct = s?.cpu ?? 0, memPct = s && s.limit > 0 ? (s.mem / s.limit) * 100 : 0;
+        return <>
+          <div className="text-xs" data-metric="cpu">
+            <div className="flex items-baseline justify-between gap-2"><span className="text-muted">{t("cpu")}</span><span className={`tabular-nums font-medium ${s ? heat(cpuPct) : "text-muted"}`}>{s ? s.cpu.toFixed(1) + "%" : "–"}</span></div>
+            {!compact && <><Meter value={cpuPct} label={t("cpu_use")} /><div className={`mt-0.5 ${heat(cpuPct)}`}><Spark values={series?.cpu ?? []} label={t("m_trend_cpu")} /></div></>}
+          </div>
+          <div className="text-xs" data-metric="mem">
+            <div className="flex items-baseline justify-between gap-2"><span className="text-muted">{t("ram")}</span><span className={`tabular-nums font-medium ${s ? heat(memPct) : "text-muted"}`} title={s && s.limit > 0 ? `${bytes(s.mem)} / ${bytes(s.limit)} (${memPct.toFixed(0)}%)` : undefined}>{s ? bytes(s.mem) : "–"}</span></div>
+            {!compact && <><Meter value={s?.mem ?? 0} max={s?.limit || 1} label={t("mem_use")} /><div className={`mt-0.5 ${heat(memPct)}`}><Spark values={series?.mem ?? []} zoom label={t("m_trend_mem")} /></div></>}
+          </div>
+        </>;
+      })()}
       <div className="flex items-center gap-0.5 justify-self-end">
         {up ? <Btn kind="ghost" icon="stop" label={t("act_stop")} busy={busy} onClick={() => ctl(c, "stop")} /> : <Btn kind="ghost" icon="play" label={t("act_start")} busy={busy} onClick={() => ctl(c, "start")} />}
         <Btn kind="ghost" icon="logs" label={t("act_logs")} onClick={() => setLogs(c)} />
@@ -571,6 +633,7 @@ function Row({ c, s, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart
           { id: "restart", label: t("act_restart"), icon: "restart", disabled: busy, onSelect: () => ctl(c, "restart") },
           ...(up ? [{ id: "term", label: t("act_term"), icon: "term", onSelect: () => setTerm(c) }] : []),
           { id: "chart", label: t("act_chart"), icon: "chart", onSelect: () => setChart(c) },
+          { id: "mute", label: muted ? t("act_unmute") : t("act_mute"), icon: "bell-off", onSelect: muted ? onUnmute : onMute },
           { id: "delete", label: t("delete"), icon: "trash", danger: true, separatorBefore: true, disabled: busy, onSelect: () => del(c) },
         ]} />
       </div>

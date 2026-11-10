@@ -72,6 +72,20 @@ export const en: Record<keyof typeof es, string> = {
   err_invalid_telegram_token: "The Telegram token has the wrong format (123456:ABC…).", err_invalid_telegram_chat: "The chat ID must be a number (or @channel).",
   err_telegram_incomplete: "Telegram needs a token and a chat ID.", err_invalid_webhook_url: "The webhook URL must start with http:// or https://.", err_webhook_incomplete: "The webhook needs a URL.",
   err_invalid_authorization: "The Authorization header is not valid.", err_alert_test_failed: "Test failed: {reason}",
+  // Alerts: recovery, exclusions, silences
+  al_recovery: "Tell me when it is resolved", al_recovery_h: "A \"back to normal\" message when a problem we already told you about ends: health recovered, container stable again, CPU or memory normal. It never arrives without an earlier alert.",
+  al_exclude: "Ignore containers", al_exclude_ph: "names separated by commas", al_rule_cooldown: "Repeat every (min)", al_rule_cooldown_ph: "global",
+  al_b_back_up: "Running", al_b_cpu_ok: "CPU normal", al_b_memory_ok: "Memory normal",
+  al_mutes: "Silenced", al_mutes_hint: "They do not alert on any channel while the silence lasts.", al_mutes_empty: "Nothing is silenced.",
+  al_mute_kind_container: "Container", al_mute_kind_stack: "Stack", al_mute_until: "until {time}", al_mute_forever: "until you lift it", al_unmute: "Unsilence",
+  al_mute_add: "Silence", al_mute_name_ph: "container or stack name",
+  mute_title: "Silence alerts for {name}", mute_for: "For", mute_1h: "1 hour", mute_8h: "8 hours", mute_24h: "24 hours", mute_forever: "Until I lift it",
+  mute_scope: "What to silence", mute_this: "Only this container", mute_stack: "The whole “{stack}” stack", mute_btn: "Silence",
+  act_mute: "Silence alerts…", act_unmute: "Unsilence alerts", muted_badge: "Alerts silenced", mute_done: "Alerts for {name} silenced", unmute_done: "Alerts for {name} back on", al_h_mute: "Silence {name}",
+  err_invalid_mute: "Could not silence: invalid name or duration.",
+  // Metrics
+  m_top: "Top: {name} · {value}", m_of_host: "of {total}", m_trend_cpu: "CPU trend over the last minutes", m_trend_mem: "Memory trend over the last minutes",
+  col_container: "Container", col_state: "State", sort_by: "Sort by {col}",
   // Disk
   tab_disk: "Disk", dk_intro: "Shows how much space Docker uses and what can be removed. Nothing is deleted until you choose it and confirm; Docker refuses to delete anything in use.",
   dk_analyze: "Analyze again", dk_measuring: "Measuring disk usage… this can take a few seconds when there is a lot of data.", dk_using: "Docker is using {size}", dk_reclaim_total: "About {size} could be freed (estimate)",

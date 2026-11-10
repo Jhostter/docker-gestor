@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState } from "react";
+import { sparkPoints } from "./metrics-core.mjs";
 import { createPortal } from "react-dom";
 import { useT } from "./i18n";
 
@@ -34,6 +35,7 @@ const P: Record<string, string> = {
   edit: "M4 20h4L19 9l-4-4L4 16v4Zm9-13 4 4",
   info: "M12 8h.01M11 12h1v4h1M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Z",
   gauge: "M12 14l4-4M3.34 17a10 10 0 1 1 17.32 0",
+  "bell-off": "M13.7 21a2 2 0 0 1-3.4 0M17 17H3s3-2 3-9a6 6 0 0 1 .3-1.9M8.7 3.2A6 6 0 0 1 18 8c0 2.2.3 4 .8 5.4M2 2l20 20",
   bell: "M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0",
 };
 export function Icon({ name, className = "size-4" }: { name: keyof typeof P | string; className?: string }) {
@@ -84,6 +86,16 @@ export const Meter = ({ value, max = 100, label, plain }: { value: number; max?:
     <div className="min-w-24" role="meter" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
       <div className="h-1.5 overflow-hidden rounded-full bg-surface2"><div className={`h-full rounded-full ${plain ? "bg-ok" : pct > 85 ? "bg-bad" : pct > 60 ? "bg-warn" : "bg-accent"}`} style={{ width: `${Math.max(pct, 1)}%` }} /></div>
     </div>
+  );
+};
+/** A tiny trend line for the last few minutes. `zoom` frames memory around its own range so small changes show. */
+export const Spark = ({ values, label, zoom, className = "" }: { values: number[]; label: string; zoom?: boolean; className?: string }) => {
+  const pts = sparkPoints(values, 64, 18, { zoom });
+  if (!pts) return <span className="block h-[18px]" aria-hidden />;
+  return (
+    <svg role="img" aria-label={label} viewBox="0 0 64 18" preserveAspectRatio="none" className={`block h-[18px] w-full ${className}`}>
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+    </svg>
   );
 };
 export const Empty = ({ icon, title, hint }: { icon: string; title: string; hint?: string }) => (

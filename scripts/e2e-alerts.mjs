@@ -24,11 +24,12 @@ const hookPort = await listen(async (req, res) => { got.hook.push({ headers: req
 
 procs.push(spawn(process.execPath, ["scripts/demo/mock-docker.mjs", sock], { stdio: "ignore" }));
 await sleep(700);
-procs.push(spawn(process.execPath, ["server.mjs"], { env: { ...process.env, PORT: String(PORT), DOCKER_SOCKET: sock, DATA_DIR: tmp, SAMPLE_SECONDS: "1", ALERT_HOST: "testbox", TELEGRAM_API_URL: `http://127.0.0.1:${tgPort}` }, stdio: "ignore" }));
+procs.push(spawn(process.execPath, ["server.mjs"], { env: { ...process.env, PORT: String(PORT), DOCKER_SOCKET: sock, DATA_DIR: tmp, SAMPLE_SECONDS: "1", ALERT_HOST: "testbox", ALERT_STABLE_SECONDS: "2", TELEGRAM_API_URL: `http://127.0.0.1:${tgPort}` }, stdio: "ignore" }));
 for (let i = 0; i < 60; i++) { try { if ((await fetch(BASE)).ok) break; } catch {} await sleep(500); }
 
 const api = async (path, init) => { const r = await fetch(BASE + path, init); return { status: r.status, body: await r.json().catch(() => ({})) }; };
 const put = (b) => api("/api/alerts/config", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(b) });
+const del = (path, b) => api(path, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify(b ?? {}) });
 const post = (path, b) => api(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b ?? {}) });
 const demo = (action, name) => new Promise((res) => http.request({ socketPath: sock, path: `/_demo/${action}/${name}`, method: "POST" }, (r) => { r.resume(); r.on("end", res); }).end());
 const waitFor = async (fn, ms = 8000) => { for (let t = 0; t < ms; t += 200) { if (fn()) return true; await sleep(200); } return false; };
@@ -73,6 +74,70 @@ await demo("unhealthy", "shop-db"); await demo("oom", "shop-worker");
 check(await waitFor(() => got.hook.some((h) => JSON.parse(h.body).event === "unhealthy") && got.hook.some((h) => JSON.parse(h.body).event === "oom")), "unhealthy and OOM events alert");
 await demo("healthy", "shop-db");
 check(await waitFor(() => got.hook.some((h) => JSON.parse(h.body).event === "recovered")), "recovery is reported");
+
+// 3b) it says when a crash is over (only after it stays up), and only for a crash it reported
+const hookEvents = () => got.hook.map((h) => JSON.parse(h.body));
+const countOf = (event, name) => hookEvents().filter((h) => h.event === event && h.container === name).length;
+check(countOf("back_up", "shop-api") === 0, "no 'running again' while the container is still down");
+await demo("start", "shop-api");
+check(await waitFor(() => countOf("back_up", "shop-api") === 1), "once it stays up, the crash is followed by 'running again'");
+const bu = hookEvents().find((h) => h.event === "back_up");
+check(/running again/.test(bu.text) && got.tg.some((m) => /shop-api is running again/.test(m.body.text)), "on the webhook and on Telegram");
+await demo("start", "shop-api"); await sleep(3000);
+check(countOf("back_up", "shop-api") === 1, "and only once");
+await demo("start", "shop-cache"); await sleep(3000);
+check(countOf("back_up", "shop-cache") === 0, "a container that never alerted does not announce recovery");
+
+// 3c) silences: by container and by stack, taking effect at once, lifted at once, never leaking into other containers
+const badKind = await post("/api/alerts/mute", { kind: "bogus", name: "x", minutes: 5 });
+const badMin = await post("/api/alerts/mute", { kind: "container", name: "x", minutes: 0 });
+check(badKind.status === 400 && badKind.body.code === "invalid_mute" && badMin.status === 400, "a silence with a bad kind or duration is rejected with a code");
+const evilMute = await fetch(BASE + "/api/alerts/mute", { method: "POST", headers: { origin: "http://evil.example", "content-type": "application/json" }, body: JSON.stringify({ kind: "container", name: "shop-db", minutes: null }) });
+check(evilMute.status === 403, "a foreign Origin cannot silence alerts");
+const m1 = await post("/api/alerts/mute", { kind: "container", name: "shop-worker", minutes: 60 });
+check(m1.status === 200 && m1.body.mutes.length === 1 && m1.body.mutes[0].name === "shop-worker" && m1.body.mutes[0].until > Date.now(), "silencing a container is stored with its expiry");
+check(JSON.parse(readFileSync(join(tmp, "alerts.json"), "utf8")).mutes.length === 1, "and persisted");
+let n = got.hook.length; await demo("oom", "shop-worker"); await demo("crash", "shop-worker"); await sleep(4500);
+check(got.hook.length === n, "a silenced container raises nothing (OOM and crash)");
+await demo("oom", "shop-cache");
+check(await waitFor(() => countOf("oom", "shop-cache") === 1), "while another container still alerts");
+const kept = await put({ rules: { oom: { enabled: true } } });
+check(kept.body.mutes.length === 1, "saving the rules form does not lift a silence");
+const m2 = await del("/api/alerts/mute", { kind: "container", name: "shop-worker" });
+check(m2.status === 200 && m2.body.mutes.length === 0, "lifting a silence removes it");
+await demo("oom", "shop-worker");
+check(await waitFor(() => countOf("oom", "shop-worker") === 1), "and the container alerts again at once");
+
+await post("/api/alerts/mute", { kind: "stack", name: "shop", minutes: null });
+n = got.hook.length; await demo("oom", "shop-db"); await demo("oom", "shop-api"); await sleep(1500);
+check(got.hook.length === n, "a stack silence covers every container of the stack");
+await demo("oom", "grafana");
+check(await waitFor(() => countOf("oom", "grafana") === 1), "and none of another stack");
+await del("/api/alerts/mute", { kind: "stack", name: "shop" });
+
+// 3d) per-rule exclusions and cooldown, and the switch for recovery messages
+await put({ rules: { oom: { exclude: ["shop-web"] } } });
+n = got.hook.length; await demo("oom", "shop-web"); await sleep(1500);
+check(got.hook.length === n, "a container excluded from a rule does not trigger it");
+await demo("oom", "prometheus");
+check(await waitFor(() => countOf("oom", "prometheus") === 1), "the rule still works for the rest");
+await demo("crash", "shop-web");
+check(await waitFor(() => countOf("died", "shop-web") === 1), "and the exclusion only affects that rule");
+await put({ rules: { oom: { exclude: [] } } });
+await put({ rules: { oom: { cooldownMinutes: 5 } } });
+await demo("oom", "node-exporter"); await demo("oom", "node-exporter"); await sleep(1500);
+check(countOf("oom", "node-exporter") === 1, "a per-rule cooldown holds back repeats even when the global one is off");
+await demo("oom", "mailpit");
+check(await waitFor(() => countOf("oom", "mailpit") === 1), "per container");
+await put({ rules: { oom: { cooldownMinutes: null } } });
+await put({ recovery: false });
+await demo("unhealthy", "shop-cache"); await demo("healthy", "shop-cache"); await sleep(1500);
+check(countOf("unhealthy", "shop-cache") === 1 && countOf("recovered", "shop-cache") === 0, "with recovery messages off only the problem is reported");
+await put({ recovery: true });
+const cfgNow = await api("/api/alerts/config");
+check(cfgNow.body.recovery === true && Array.isArray(cfgNow.body.rules.oom.exclude) && cfgNow.body.rules.oom.cooldownMinutes === null, "the new settings round-trip through the API");
+const histAll = await api("/api/alerts/history");
+check(histAll.body.some((h) => h.rule === "back_up" && /running again/.test(h.message)), "recovery messages are kept in the history");
 
 // 4) history + test endpoint + failure reporting
 const hist = await api("/api/alerts/history");

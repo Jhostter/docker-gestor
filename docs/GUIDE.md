@@ -127,7 +127,16 @@ Four summary cards on top: running containers, total CPU, memory in use and numb
 | Name and image | Click the name for the details; hover for the full text |
 | Ports `:8080:80 ↗` | Published ports as chips. TCP ones open `http://localhost:<port>` in a new tab |
 | Status badge | 🟢 Running · 🟡 Starting / other · 🔴 unhealthy · ⚪ Stopped |
-| CPU and RAM | Current usage with a bar; refreshed every 10 s, only while you are on this section |
+| CPU and RAM | Current usage with a bar and a **mini chart of the last few minutes** (the figure turns amber above 60 % and red above 85 %). Refreshed every 10 s, only while you are on this section. The compact view shows just the figures |
+| 🔕 | Shown next to the name when its alerts are silenced (see [Alerts](#10-alerts)) |
+
+### Usage at a glance
+
+![Containers sorted by CPU](img/metrics.png)
+
+- **The cards on top** summarise the whole set: running containers (with a bar), **total CPU** with its trend and the container using the most, and **memory** in use against the machine's RAM, again with the biggest consumer. Until the list has loaded they show nothing half-finished.
+- **Sort by usage:** click the **Container**, **CPU** or **RAM** headings of the table. The biggest consumers come first and stopped containers last; click the active heading again to go back to Docker's order. The choice is remembered and applies inside each group.
+- **Trends start when you open the page:** they are drawn from the samples the page itself takes (one every 10 s, up to about 5 minutes), so they take about 20 s to appear. For longer history use the [usage chart](#usage-chart).
 
 ### Row actions
 
@@ -317,12 +326,42 @@ Alerts tell you when something goes wrong, so you do not have to keep the page o
 |---|---|
 | **A container crashes** | It exits with a non-zero code **without you stopping it** |
 | **Out of memory (OOM)** | The system kills it for lack of memory |
-| **Unhealthy** | Its health check fails (and a “healthy again” message follows when it recovers) |
+| **Unhealthy** | Its health check fails |
 | **Restart loop** | It crashes N times within M minutes (default 3 in 10) |
 | **High CPU** *(off by default)* | It stays above X % for M minutes (default 90 % for 5) |
 | **High memory** *(off by default)* | It stays above X % of its memory limit for M minutes (default 90 % for 2). Without a limit the percentage is of the machine's RAM |
 
 **No noise:** a `stop`, `restart` or removal you do yourself (from this UI or from the command line) is recognised and ignored. The same alert for the same container is not repeated for the **cooldown** period (10 minutes by default; 0 disables it).
+
+![Alerts with rules, silences and channels](img/alerts.png)
+
+#### When the problem ends
+
+With **Tell me when it is resolved** (on by default) a “🟢 …” message arrives when a problem **we already told you about** ends:
+
+| Message | When it arrives |
+|---|---|
+| `recovered` — “healthy again” | Its health check goes from *unhealthy* to *healthy* |
+| `back_up` — “is running again” | After a crash or an OOM, the container has been running for **30 s in a row**. If it crashes again first there is no message: a restart loop never “recovers” |
+| `cpu_ok` / `memory_ok` — “CPU back to 12%” | Two consecutive samples below the threshold after a high-CPU or high-memory alert |
+
+A “back to normal” never arrives without an earlier alert: if that alert was silenced, excluded or switched off, the end of the problem is not announced either. Recovery messages ignore the cooldown (a recent alert does not hold them back).
+
+#### Silencing
+
+For maintenance there is no need to switch alerts off: **silence only what you need to**.
+
+- From the row: **⋯ menu → Silence alerts…**. Choose **just that container** or **its whole stack**, and **1 hour, 8 hours, 24 hours or until you lift it**. Silenced containers carry a crossed-out bell (🔕), and the same menu offers **Unsilence alerts**.
+- From **Alerts → Silenced**: lists everything that is silent, when it ends and an **Unsilence** button; you can also silence by name (a container or a stack). In the **History**, every row has a bell that silences that container for 1 hour.
+- A silence covers **every rule and every channel**, starts and ends at once (no need to press *Save changes*) and expires by itself. Silencing a stack covers all its containers, stopped ones included.
+- They are stored in `alerts.json`; saving the rules from the form never removes them.
+
+#### Ignoring containers and per-rule cooldown
+
+Every rule that is on has two extra options:
+
+- **Ignore containers:** comma-separated names that rule does not watch (say, a test container that crashes on purpose, while its resource use is still watched).
+- **Repeat every (min):** its own cooldown. Empty = the general one; `0` = never suppress. The cooldown was already independent per rule and container; now each rule can also have its own value.
 
 ### Channels
 
@@ -342,7 +381,7 @@ Alerts tell you when something goes wrong, so you do not have to keep the page o
 }
 ```
 
-`event` is one of `died`, `oom`, `unhealthy`, `recovered`, `restartLoop`, `cpu`, `memory`, `test`. Use **Send test** (after saving) to check a channel; the section shows the last error or the last successful delivery of each one.
+`event` is one of `died`, `oom`, `unhealthy`, `recovered`, `back_up`, `restartLoop`, `cpu`, `cpu_ok`, `memory`, `memory_ok`, `test`. Use **Send test** (after saving) to check a channel; the section shows the last error or the last successful delivery of each one.
 
 The messages use the language selected in the UI, and start with the machine name so you can tell several computers apart. Change that label with `ALERT_HOST`.
 

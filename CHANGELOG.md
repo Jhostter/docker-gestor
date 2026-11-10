@@ -4,7 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
-### Fixed
+### Added
+- **Silence alerts** for a container or a whole Compose stack: for 1 hour, 8 hours, 24 hours or until you lift it. From the row's **⋯ menu** (*Silence alerts…* / *Unsilence alerts*, with a crossed-out bell on silenced rows), from **Alerts → Silenced** (list, add by name, lift) or from a history row. A silence covers every rule and channel, takes effect and ends at once, expires by itself and survives saving the rules. `POST` / `DELETE /api/alerts/mute`.
+- **"Back to normal" messages** (`recovered`, `back_up`, `cpu_ok`, `memory_ok`; switch: *Tell me when it is resolved*): a container that crashed or ran out of memory and stays up for 30 s, and CPU / memory that stay below the threshold for two samples. They only follow an alert that was actually sent, so a silenced, excluded or disabled alert never produces an orphan "all good", and they ignore the cooldown.
+- **Per-rule options**: *Ignore containers* (names that rule does not watch) and *Repeat every (min)* (its own cooldown; empty = the general one, `0` = never suppress).
+- **Usage at a glance in Containers**: rows show a trend line of the last few minutes next to the CPU and RAM meters, with figures that turn amber / red like the bars; the summary cards show the CPU trend, memory against the machine's RAM and the **top consumer**; the **Container / CPU / RAM headings sort** the list (biggest first, stopped last; click again to restore Docker's order; remembered).
+- `ALERT_STABLE_SECONDS` (tests only) shortens the 30 s stability window; the mock Docker gained a `start` fault action and project labels on its events.
 - **The interface no longer gets stuck on an old state after stopping or starting containers.** Several causes, each with its own test:
   - The events stream gave up for good when Docker briefly failed (a browser `EventSource` never reconnects after an HTTP error). The server now always answers 200 and tells the browser when to retry; the page also reconnects by itself with growing waits, and refreshes the moment it is back.
   - An old, slow response could arrive last and overwrite newer data; only the newest response per resource is applied now.

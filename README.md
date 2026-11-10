@@ -41,7 +41,8 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 - **Events** — live Docker event stream (it also keeps the UI in sync without polling).
 - **Container details** — an `inspect` you can read: why it stopped (exit code explained, OOM, restarts), environment, mounts, ports, networks, health history and notable settings (privileged, Docker socket mounted…). Secret-looking values are never sent unless you press *Show*.
 - **Disk usage & safe cleanup** — see where Docker's space goes and free it with a preview: unused build cache, untagged images, stopped containers, unused images and volumes. Nothing is deleted until you confirm, items are removed one by one without `force`, and volumes need an explicit acknowledgement.
-- **Alerts** — get told (browser, **Telegram**, **webhook**) when a container crashes, runs out of memory, turns unhealthy, restarts in a loop or stays at high CPU/RAM. Ignores stops you do yourself; off by default, no measurable cost.
+- **Alerts** — get told (browser, **Telegram**, **webhook**) when a container crashes, runs out of memory, turns unhealthy, restarts in a loop or stays at high CPU/RAM, **and when it is over**. **Silence** a container or a whole stack for an hour, a day or until you lift it; ignore containers per rule; set a cooldown per rule. Ignores stops you do yourself; off by default, no measurable cost.
+- **Usage at a glance** — CPU and RAM with meters and **trend lines**, summary cards with the **top consumer**, and **sorting by CPU or RAM**.
 - **Usage history** — CPU/RAM sampled into SQLite and charted over 1 h / 24 h / 7 days; survives restarts.
 - **English and Spanish** (switch in the sidebar), **light and dark theme**, responsive layout, keyboard shortcuts, keyboard-accessible.
 - **Runs as a systemd user service** with strict CPU/memory limits (Linux).
@@ -184,7 +185,7 @@ Issues and pull requests are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md)
 
 # 🇪🇸 Español
 
-Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos alertas (Telegram, webhook y navegador), limpieza segura de disco, detalle de contenedor (con secretos ocultos), acciones por stack o selección, grupos propios (también arrastrando y soltando) y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**. La interfaz está en **español e inglés** (selector en la barra lateral).
+Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos, alertas (Telegram, webhook y navegador; con **silencios** por contenedor o stack y aviso de **recuperación**), consumo con tendencias y ordenación por CPU o RAM, limpieza segura de disco, detalle de contenedor (con secretos ocultos), acciones por stack o selección, grupos propios (también arrastrando y soltando) y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**. La interfaz está en **español e inglés** (selector en la barra lateral).
 
 **Pensado para una persona y una máquina:** sin servidor de base de datos, sin agente y sin cuentas; solo escucha en `127.0.0.1` y no hace trabajo mientras nadie mira la página. Si necesitas varios usuarios, varios hosts o Kubernetes, usa una herramienta más grande (Portainer y similares).
 

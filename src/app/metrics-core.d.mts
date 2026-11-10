@@ -1,0 +1,10 @@
+export type Series = { cpu: number[]; mem: number[] };
+export type SeriesStore = { byId: Record<string, Series>; total: Series };
+type StatLike = { id: string; name?: string; cpu: number; mem: number; limit: number };
+export const SERIES_LEN: number;
+export function emptySeries(): SeriesStore;
+export function pushSeries(prev: SeriesStore, stats: StatLike[], max?: number): SeriesStore;
+export function sortContainers<T extends { id: string; name: string }>(list: T[], stats: Record<string, StatLike>, by: string): T[];
+export function topConsumer(stats: Record<string, StatLike>, key: "cpu" | "mem"): { name: string; value: number } | null;
+export function hostMemory(stats: Record<string, StatLike>): number;
+export function sparkPoints(values: number[], w: number, h: number, o?: { zoom?: boolean }): string;

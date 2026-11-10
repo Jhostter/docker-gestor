@@ -33,14 +33,14 @@ export function fail(e: unknown) {
   return json({ error: e instanceof Error ? e.message : String(e) }, 500);
 }
 
-export type Snap = { id: string; name: string; cpu: number; mem: number; limit: number };
+export type Snap = { id: string; name: string; cpu: number; mem: number; limit: number; project?: string };
 
 /** CPU (%) and RAM of a running container. */
-export async function snapshot(c: { Id: string; Names: string[] }): Promise<Snap> {
+export async function snapshot(c: { Id: string; Names: string[]; Labels?: Record<string, string> }): Promise<Snap> {
   const s = await docker.getContainer(c.Id).stats({ stream: false });
   const cpuDelta = s.cpu_stats.cpu_usage.total_usage - s.precpu_stats.cpu_usage.total_usage;
   const sysDelta = (s.cpu_stats.system_cpu_usage ?? 0) - (s.precpu_stats.system_cpu_usage ?? 0);
   const cpu = sysDelta > 0 ? (cpuDelta / sysDelta) * (s.cpu_stats.online_cpus ?? 1) * 100 : 0;
   const cache = s.memory_stats.stats?.inactive_file ?? s.memory_stats.stats?.cache ?? 0;
-  return { id: c.Id, name: c.Names[0]?.replace(/^\//, ""), cpu, mem: (s.memory_stats.usage ?? 0) - cache, limit: s.memory_stats.limit ?? 0 };
+  return { id: c.Id, name: c.Names[0]?.replace(/^\//, ""), cpu, mem: (s.memory_stats.usage ?? 0) - cache, limit: s.memory_stats.limit ?? 0, project: c.Labels?.["com.docker.compose.project"] || undefined };
 }

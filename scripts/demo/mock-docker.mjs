@@ -22,7 +22,8 @@ const inspects = {}; // how many times each container was inspected (to check th
 const ops = []; // ordered log of start/stop/restart/remove calls (read it at /_demo/ops)
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 const emit = (type, action, name, image = "", extra = {}) => {
-  const t = Date.now(), line = JSON.stringify({ Type: type, Action: action, Actor: { ID: ctrId(name), Attributes: { name, image, ...extra } }, time: Math.floor(t / 1000), timeNano: t * 1e6 }) + "\n";
+  const project = state.find((c) => c.name === name)?.labels?.["com.docker.compose.project"]; // real events carry the container's labels
+  const t = Date.now(), line = JSON.stringify({ Type: type, Action: action, Actor: { ID: ctrId(name), Attributes: { name, image, ...(project ? { "com.docker.compose.project": project } : {}), ...extra } }, time: Math.floor(t / 1000), timeNano: t * 1e6 }) + "\n";
   listeners.forEach((w) => w.write(line));
 };
 const json = (res, data, code = 200) => { res.writeHead(code, { "content-type": "application/json" }); res.end(JSON.stringify(data)); };
@@ -154,10 +155,11 @@ http.createServer(async (req, res) => {
   if (m === "GET" && p === "/_demo/ops") return json(res, ops);
   if (m === "GET" && p === "/_demo/inspects") return json(res, inspects);
   if (m === "POST" && (r = p.match(/^\/_demo\/health\/([^/]+)\/(starting|unhealthy|healthy|none)$/))) { if (r[2] === "none") healthOverride.delete(r[1]); else healthOverride.set(r[1], r[2]); return json(res, { ok: true }); }
-  if (m === "POST" && (r = p.match(/^\/_demo\/(crash|oom|unhealthy|healthy)\/([^/]+)$/))) {
+  if (m === "POST" && (r = p.match(/^\/_demo\/(crash|oom|unhealthy|healthy|start)\/([^/]+)$/))) {
     // Fault injection for demos and the alerts end-to-end test; it does not exist in the real Docker API.
     const c = find(r[2]); if (!c) return json(res, { message: "No such container" }, 404);
     if (r[1] === "crash") { c.state = "exited"; c.status = "Exited (1) just now"; emit("container", "die", c.name, c.image, { exitCode: "1" }); }
+    else if (r[1] === "start") { c.state = "running"; c.status = "Up a few seconds"; emit("container", "start", c.name, c.image); } // as if the restart policy had brought it back
     else if (r[1] === "oom") emit("container", "oom", c.name, c.image);
     else emit("container", r[1] === "unhealthy" ? "health_status: unhealthy" : "health_status: healthy", c.name, c.image);
     return json(res, { ok: true });
