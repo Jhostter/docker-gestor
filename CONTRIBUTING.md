@@ -4,7 +4,7 @@ Thanks for your interest! / ¡Gracias por tu interés!
 
 ## Ideas that would help most
 
-- **Translations (i18n):** the UI strings are in Spanish and live mostly in `src/app/*.tsx`. Extracting them into a lightweight dictionary (no heavy dependencies) would be a great first contribution.
+- **New languages:** the UI is available in English and Spanish. Adding another one is a single file: copy `src/app/locales/en.ts`, translate the values and register it in `src/app/i18n.ts` (TypeScript reports any missing key). A native-speaker review of the existing translations is welcome too.
 - **Testing on macOS and Windows** with a real Docker (Docker Desktop, Colima…) and reporting back, or sending the missing autostart installers. See [docs/PLATFORMS.md](docs/PLATFORMS.md).
 - Authentication for optional remote use.
 - Tests.

@@ -14,7 +14,7 @@ Panel web local para gestionar Docker desde el navegador: contenedores, logs, te
 8. [Redes](#8-redes)
 9. [Eventos](#9-eventos)
 10. [Atajos de teclado](#10-atajos-de-teclado)
-11. [Tema claro y oscuro](#11-tema-claro-y-oscuro)
+11. [Tema e idioma](#11-tema-e-idioma)
 12. [Historial de consumo y datos guardados](#12-historial-de-consumo-y-datos-guardados)
 13. [Configuración](#13-configuración)
 14. [Consumo de recursos](#14-consumo-de-recursos)
@@ -82,7 +82,7 @@ sudo loginctl enable-linger $USER       # si dice Linger=no
 
 ## 3. Recorrido por la interfaz
 
-- **Barra lateral** (arriba en móvil): las seis secciones. En la parte inferior verás el estado de la conexión (🟢 *Docker conectado*), el cambio de tema y la ayuda.
+- **Barra lateral** (arriba en móvil): las seis secciones. En la parte inferior verás el estado de la conexión (🟢 *Docker conectado*), el cambio de tema, el selector de idioma y la ayuda.
 - **Zona principal**: el contenido de la sección activa.
 - **Avisos**: aparecen abajo a la derecha. Los de éxito desaparecen solos; los de error permanecen unos segundos más y puedes cerrarlos con ✕.
 - **Confirmaciones**: toda acción destructiva (eliminar, bajar un stack…) pide confirmación explícita y te explica qué ocurrirá.
@@ -234,9 +234,12 @@ Pulsa `?` en cualquier momento para verlos. No actúan mientras escribes en un c
 
 La interfaz es totalmente navegable con teclado (`Tab`/`Shift+Tab`, `Enter`) y respeta la preferencia del sistema de «reducir animaciones».
 
-## 11. Tema claro y oscuro
+## 11. Tema e idioma
 
-Por defecto sigue el tema de tu sistema. Cambia manualmente con el icono ☀/🌙 de la barra lateral (en móvil, el botón flotante abajo a la izquierda); la elección se recuerda en el navegador.
+- **Tema**: por defecto sigue el de tu sistema. Cambia con el icono ☀/🌙 de la barra lateral (en móvil, el botón flotante abajo a la izquierda); se recuerda en el navegador.
+- **Idioma**: español o inglés. La primera vez se usa el idioma del navegador; cambia con el botón **ES / EN** junto al tema. También se recuerda.
+
+> Versión en inglés de esta guía: [GUIDE.md](GUIDE.md).
 
 ## 12. Historial de consumo y datos guardados
 
@@ -363,6 +366,7 @@ src/lib/docker.ts             Cliente de Docker, validación de Host/Origin, uti
 src/lib/history.ts            Muestreo y consultas SQLite
 src/app/page.tsx              Interfaz (secciones)
 src/app/ui.tsx                Componentes comunes: botones, modal, avisos, confirmaciones, iconos
+src/app/i18n.ts + locales/    Traducciones (un archivo por idioma)
 src/app/{Logs,Terminal,HistoryChart,CreateForm}.tsx   Ventanas
 src/app/globals.css           Tokens de tema claro/oscuro
 src/app/api/**                API REST y flujos SSE

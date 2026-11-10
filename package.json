@@ -31,7 +31,8 @@
     "start": "node server.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/*.test.mjs\"",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "demo:shots": "node scripts/demo/screenshots.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

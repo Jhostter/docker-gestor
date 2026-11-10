@@ -1,25 +1,57 @@
+<div align="center">
+
 # 🐳 Docker Gestor
 
-A lightweight, local web dashboard to manage Docker from your browser — containers, live logs, an interactive terminal, Compose stacks, images, volumes, networks, live events and resource-usage charts with history.
+**A lightweight, local web dashboard for Docker — in about 55 MB of RAM.**
 
-Built to stay out of your way (measured on Linux): **~0.2–0.5 % of one CPU core and ~55 MB of RAM** while idle with a tab open.
+[![CI](https://github.com/Jhostter/docker-gestor/actions/workflows/ci.yml/badge.svg)](https://github.com/Jhostter/docker-gestor/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Node 22.13+](https://img.shields.io/badge/node-%E2%89%A522.13-339933)
+![UI: English · Español](https://img.shields.io/badge/UI-English%20%C2%B7%20Espa%C3%B1ol-informational)
 
-[🇪🇸 Leer en español](#-español)
+<img src="docs/img/demo.gif" alt="Docker Gestor demo: start/stop, live logs, usage chart, Compose, events, light theme and language switch" width="900">
+
+[Español](#-español) · [Usage guide](docs/GUIDE.md) · [Guía de uso](docs/GUIA.md) · [Platforms](docs/PLATFORMS.md)
+
+</div>
+
+Containers, live logs, an interactive terminal, Compose stacks, images, volumes, networks, live events and **usage charts with history** — in one small local app that stays out of your way: **~0.2–0.5 % of one CPU core and ~55 MB of RAM** while idle with a tab open (measured on Linux with 12 containers).
+
+## Why another Docker UI?
+
+Docker Gestor is built for **one person, one machine**: no database server, no agent, no accounts. It listens on `127.0.0.1`, keeps CPU/RAM history in a single SQLite file, and does no work while nobody is looking at the page (updates are driven by Docker events, not by polling).
+
+It is **not** a replacement for the bigger tools. Use something else if you need:
+
+- multi-user access, roles or SSO, or managing several hosts / Kubernetes → Portainer and similar;
+- only log viewing across many containers → a dedicated log viewer such as Dozzle;
+- a terminal UI → lazydocker.
 
 ## Features
 
 - **Containers** — list, search, filter, group by Compose stack; start / stop / restart / remove; clickable published ports; live CPU and memory per container.
-- **Live logs** — streaming, filtering, timestamps toggle, download.
+- **Live logs** — streaming, filtering, timestamps toggle, error/warning highlighting, download.
 - **Terminal** — interactive shell inside a running container (xterm.js over WebSocket).
 - **Create containers** — image, ports, env vars, volumes, restart policy and network, with live validation. Pulls the image if missing.
 - **Compose** — `up`, `restart`, `stop`, `pull` and `down` for the stacks Docker already knows about.
 - **Images, volumes, networks** — browse, create/pull, remove; images show whether they are in use.
-- **Events** — live Docker event stream (also keeps the UI in sync without polling).
+- **Events** — live Docker event stream (it also keeps the UI in sync without polling).
 - **Usage history** — CPU/RAM sampled into SQLite and charted over 1 h / 24 h / 7 days; survives restarts.
-- **Light & dark theme**, responsive layout, keyboard shortcuts, keyboard-accessible.
-- **Runs as a systemd user service** with strict CPU/memory limits.
+- **English and Spanish** (switch in the sidebar), **light and dark theme**, responsive layout, keyboard shortcuts, keyboard-accessible.
+- **Runs as a systemd user service** with strict CPU/memory limits (Linux).
 
-> The interface is currently in **Spanish** only. Translations are very welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+## Screenshots
+
+| | |
+|---|---|
+| ![Containers, dark](docs/img/containers-dark.png) **Containers** (dark) | ![Containers, light](docs/img/containers-light.png) **Containers** (light) |
+| ![Live logs](docs/img/logs.png) **Live logs** | ![Usage chart](docs/img/chart.png) **Usage history** |
+| ![Create container](docs/img/create.png) **Create a container** | ![Compose](docs/img/compose.png) **Compose stacks** |
+| ![Events](docs/img/events.png) **Live events** | ![Spanish UI](docs/img/containers-es.png) **Spanish UI** |
+
+<p align="center"><img src="docs/img/mobile.png" alt="Mobile layout" width="260"></p>
+
+All screenshots use fictional demo data (see [Try it without Docker](#try-it-without-touching-your-containers)).
 
 ## Requirements
 
@@ -63,6 +95,17 @@ systemctl --user status docker-gestor
 journalctl --user -u docker-gestor -f
 ```
 
+## Try it without touching your containers
+
+A fake Docker Engine API with fictional data ships with the repo — handy to explore the UI, test on a machine without Docker, or regenerate the screenshots:
+
+```bash
+node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &
+DOCKER_SOCKET=/tmp/docker-mock.sock npm start
+```
+
+`npm run demo:shots` regenerates everything in `docs/img/` (needs Chrome/Chromium and, for the GIF, ffmpeg).
+
 ## Configuration
 
 Optional environment variables:
@@ -79,7 +122,7 @@ Optional environment variables:
 
 Controlling Docker is equivalent to having root on the machine. Docker Gestor is designed for **local, single-user use**:
 
-- It listens on `127.0.0.1` only and rejects requests whose `Host`/`Origin` is not `localhost:4455` (CSRF / DNS-rebinding protection, including the terminal WebSocket).
+- It listens on `127.0.0.1` only and rejects requests whose `Host`/`Origin` is not `localhost:<port>` (CSRF / DNS-rebinding protection, including the terminal WebSocket).
 - Container ports created from the UI are published on `127.0.0.1` only.
 - All inputs are validated server-side; Compose only acts on stacks Docker already knows.
 - **There is no authentication.** Do **not** expose it to a network or the internet (reverse proxies, tunnels, `0.0.0.0`) without adding your own authentication layer.
@@ -88,7 +131,9 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ## Documentation
 
-📖 Full usage guide (Spanish): [docs/GUIA.md](docs/GUIA.md) — every section, shortcuts, data, configuration, troubleshooting and API.
+- 📖 [Usage guide (English)](docs/GUIDE.md) · [Guía de uso (español)](docs/GUIA.md) — every section, shortcuts, data, configuration, troubleshooting and API.
+- [Platform support and autostart recipes](docs/PLATFORMS.md)
+- [Changelog](CHANGELOG.md)
 
 ## Development
 
@@ -100,7 +145,7 @@ npm run build
 npm run smoke        # boots the built server without Docker and checks it
 ```
 
-Stack: Next.js (App Router) · React · Tailwind CSS 4 · dockerode · `node:sqlite` · ws · xterm.js.
+Stack: Next.js (App Router) · React · Tailwind CSS 4 · dockerode · `node:sqlite` · ws · xterm.js. UI strings live in `src/app/locales/` (adding a language is one file).
 
 ## Contributing
 
@@ -114,7 +159,9 @@ Issues and pull requests are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md)
 
 # 🇪🇸 Español
 
-Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**.
+Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**. La interfaz está en **español e inglés** (selector en la barra lateral).
+
+**Pensado para una persona y una máquina:** sin servidor de base de datos, sin agente y sin cuentas; solo escucha en `127.0.0.1` y no hace trabajo mientras nadie mira la página. Si necesitas varios usuarios, varios hosts o Kubernetes, usa una herramienta más grande (Portainer y similares).
 
 **Plataformas:** probado a diario solo en Linux. macOS y Windows compilan y arrancan en el CI, pero **no se han probado con un Docker real**; ver [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
@@ -126,7 +173,7 @@ cd docker-gestor
 npm install && npm run build && npm start     # http://localhost:4455
 ```
 
-Para instalarlo como servicio que arranca con el equipo: `./scripts/install-service.sh`.
+Para instalarlo como servicio que arranca con el equipo: `./scripts/install-service.sh`. Para probarlo sin tocar tus contenedores hay un Docker simulado con datos ficticios (ver *Try it without touching your containers*).
 
 **Seguridad:** solo escucha en `127.0.0.1` y **no tiene autenticación**; no lo expongas a la red ni a internet.
 
