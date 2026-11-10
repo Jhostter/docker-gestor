@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-10
+
 ### Added
 - **Silence alerts** for a container or a whole Compose stack: for 1 hour, 8 hours, 24 hours or until you lift it. From the row's **⋯ menu** (*Silence alerts…* / *Unsilence alerts*, with a crossed-out bell on silenced rows), from **Alerts → Silenced** (list, add by name, lift) or from a history row. A silence covers every rule and channel, takes effect and ends at once, expires by itself and survives saving the rules. `POST` / `DELETE /api/alerts/mute`.
 - **"Back to normal" messages** (`recovered`, `back_up`, `cpu_ok`, `memory_ok`; switch: *Tell me when it is resolved*): a container that crashed or ran out of memory and stays up for 30 s, and CPU / memory that stay below the threshold for two samples. They only follow an alert that was actually sent, so a silenced, excluded or disabled alert never produces an orphan "all good", and they ignore the cooldown.
