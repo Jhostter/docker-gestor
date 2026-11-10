@@ -30,7 +30,7 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 ## Features
 
 - **Containers** — list, search, filter, group by Compose stack; start / stop / restart / remove; clickable published ports; live CPU and memory per container.
-- **Manage by stack or selection** — start, stop or restart a whole group (or any selection) in one click, **in dependency order** when Compose declares it (database before API, reverse to stop) and **waiting for a service to be healthy** before starting what depends on it. Works for any group, including stacks Compose cannot manage, and for **your own groups** (create them from a selection or by **drag and drop**, rename, merge, dissolve — containers are never touched).
+- **Manage by stack or selection** — start, stop or restart a whole group (or any selection) in one click, **in dependency order** when Compose declares it (database before API, reverse to stop) **waiting for a service to be healthy** before starting what depends on it, with a **live progress panel** (what it is waiting for, how long) and a **Cancel** button. Works for any group, including stacks Compose cannot manage, and for **your own groups** (create them from a selection or by **drag and drop**, rename, merge, dissolve — containers are never touched).
 - **Live logs** — streaming, filtering, timestamps toggle, error/warning highlighting, download.
 - **Terminal** — interactive shell inside a running container (xterm.js over WebSocket).
 - **Create containers** — image, ports, env vars, volumes, restart policy and network, with live validation. Pulls the image if missing.
@@ -55,7 +55,8 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 | ![Disk usage](docs/img/disk.png) **Disk usage and safe cleanup** | ![Container details](docs/img/detail.png) **Container details** |
 | ![Environment, secrets hidden](docs/img/detail-env.png) **Secrets stay hidden until you ask** | ![Images](docs/img/images.png) **Images** |
 | ![Groups and bulk actions](docs/img/groups.png) **Stack actions and selection** | ![Custom groups](docs/img/custom-groups.png) **Your own groups** |
-| ![Drag and drop](docs/img/drag-drop.png) **Drag and drop between groups** | ![Spanish UI](docs/img/containers-es.png) **Spanish UI** |
+| ![Drag and drop](docs/img/drag-drop.png) **Drag and drop between groups** | ![Live progress](docs/img/progress.png) **Live progress with Cancel** |
+| ![Spanish UI](docs/img/containers-es.png) **Spanish UI** | |
 
 <p align="center"><img src="docs/img/mobile.png" alt="Mobile layout" width="260"></p>
 
@@ -160,6 +161,7 @@ npm run e2e:groups   # stack actions end-to-end (dependency ordering, partial fa
 npm run e2e:custom-groups   # custom groups end-to-end (persistence, rename/merge, limits)
 npm run e2e:dnd      # drag and drop with a real mouse drag (needs Chrome/Chromium)
 npm run e2e:health   # group start waits for healthy dependencies (real timings)
+npm run e2e:progress # live progress stream and cancelling a group action
 ```
 
 Stack: Next.js (App Router) · React · Tailwind CSS 4 · dockerode · `node:sqlite` · ws · xterm.js. UI strings live in `src/app/locales/` (adding a language is one file).

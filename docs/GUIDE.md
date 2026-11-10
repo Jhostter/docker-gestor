@@ -160,6 +160,10 @@ Containers are grouped by Compose stack (switch it off with *Group by stack*). E
 - The dependency is looked up **inside the same Compose project**, even if it is not part of your selection: pressing *Start all* on only the stopped containers of a stack still waits for a database that is running but not yet healthy. If that dependency is stopped, the dependent is refused rather than started without it.
 - The wait is up to **90 seconds** per dependency; change it with `HEALTH_WAIT_SECONDS` (1 to 600). A failure caused by an unhealthy or stopped dependency is reported immediately, not after the timeout.
 
+**Live progress, and Cancel.** When a group action takes more than a moment, a panel lists every container with its state (queued, working, done, failed) and the current layer, and while it waits it says **what it is waiting for**: `Waiting for “db” to be ready… 12 s / 90 s`. **Cancel** stops the rest: what is already running finishes (nothing is interrupted halfway), but no further layer or container is started and the waiting stops. Quick actions never flash the panel.
+
+![Progress panel: two services waiting for the database, one queued](img/progress.png)
+
 **Select any containers** with the checkboxes on each row (or the one next to the search box for everything visible). A bar appears with **Start**, **Stop**, **Restart** and **Delete** for the selection, even across different groups.
 
 **Safety:** stopping, restarting and deleting several containers always asks first and lists their names; deleting also removes running containers but never their named volumes. Starting needs no confirmation. Acting on something already in the wanted state is not an error (a running container is simply skipped), and if one container fails the others still go ahead; failures are listed with Docker's reason. Group actions apply to the containers currently visible in that group, so a filter (e.g. *Stopped*) narrows what *Start all* does.
@@ -512,7 +516,7 @@ src/app/api/**                REST API and SSE streams
 | `/containers` | GET, POST | List / create and start |
 | `/containers/:id/:action` | POST | `start`, `stop`, `restart`, `remove` |
 | `/groups` | GET, PUT | Custom groups: read them; assign / unassign containers, rename or dissolve a group (one operation per request) |
-| `/containers/batch` | POST | Start / stop / restart / remove several containers, in dependency order when Compose provides it |
+| `/containers/batch` | POST | Start / stop / restart / remove several containers, in dependency order when Compose provides it. With `?stream=1` it answers with newline-delimited JSON progress events and can be cancelled by closing the connection |
 | `/containers/:id/logs` | GET (SSE) | Live logs |
 | `/containers/:id/inspect` | GET | Container details; sensitive-looking values are omitted |
 | `/containers/:id/env?name=` | GET | The real value of ONE environment variable (explicit "show"; not cacheable) |
@@ -538,7 +542,7 @@ Connection errors answer `503` with a `code` (`docker_unreachable`, `docker_deni
 ```bash
 systemctl --user stop docker-gestor     # frees port 4455
 npm run dev                             # hot reload
-npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups && npm run e2e:custom-groups && npm run e2e:dnd && npm run e2e:health
+npm run typecheck && npm test && npm run smoke && npm run e2e:alerts && npm run e2e:disk && npm run e2e:detail && npm run e2e:groups && npm run e2e:custom-groups && npm run e2e:dnd && npm run e2e:health && npm run e2e:progress
 ```
 
 No Docker at hand? Run the fake API: `node scripts/demo/mock-docker.mjs /tmp/docker-mock.sock &` then `DOCKER_SOCKET=/tmp/docker-mock.sock npm run dev`.

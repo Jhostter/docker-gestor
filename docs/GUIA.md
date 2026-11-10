@@ -167,6 +167,10 @@ Los contenedores se agrupan por stack de Compose (se desactiva con *Agrupar por 
 - La dependencia se busca **dentro del mismo proyecto de Compose**, aunque no esté en tu selección: pulsar *Iniciar todos* solo sobre los contenedores detenidos de un stack sigue esperando a una base de datos que está en marcha pero aún no saludable. Si esa dependencia está detenida, el dependiente se rechaza en lugar de arrancar sin ella.
 - La espera es de hasta **90 segundos** por dependencia; se cambia con `HEALTH_WAIT_SECONDS` (de 1 a 600). Un fallo por dependencia no saludable o detenida se comunica enseguida, no al final del tiempo.
 
+**Progreso en vivo y Cancelar.** Cuando una acción de grupo tarda más de un momento, un panel lista cada contenedor con su estado (en cola, en curso, hecho, fallido) y la capa actual, y mientras espera dice **a qué está esperando**: `Esperando a que «db» esté listo… 12 s / 90 s`. **Cancelar** detiene el resto: lo que ya está en curso termina (nada se interrumpe a medias), pero no se lanza ninguna capa ni contenedor más y la espera se corta. Las acciones rápidas nunca muestran el panel.
+
+![Panel de progreso: dos servicios esperando a la base de datos y uno en cola](img/progress.png)
+
 **Selecciona los contenedores que quieras** con la casilla de cada fila (o la que está junto al buscador, para todo lo visible). Aparece una barra con **Iniciar**, **Detener**, **Reiniciar** y **Eliminar** para la selección, aunque sea de grupos distintos.
 
 **Seguridad:** detener, reiniciar y eliminar varios contenedores siempre pregunta antes y lista sus nombres; eliminar también quita los que están en marcha pero nunca sus volúmenes con nombre. Iniciar no pide confirmación. Actuar sobre algo que ya está en el estado deseado no es un error (un contenedor en marcha simplemente se omite), y si uno falla los demás siguen adelante; los fallos se listan con el motivo de Docker. Las acciones de grupo se aplican a los contenedores visibles en ese grupo, así que un filtro (p. ej. *Detenidos*) acota lo que hace *Iniciar todos*.
@@ -541,7 +545,7 @@ src/app/api/**                API REST y flujos SSE
 | `/containers` | GET, POST | Listar / crear e iniciar |
 | `/containers/:id/:action` | POST | `start`, `stop`, `restart`, `remove` |
 | `/groups` | GET, PUT | Grupos personalizados: leerlos; asignar / quitar contenedores, renombrar o disolver un grupo (una operación por petición) |
-| `/containers/batch` | POST | Inicia / detiene / reinicia / elimina varios contenedores, en orden de dependencias cuando Compose lo indica |
+| `/containers/batch` | POST | Inicia / detiene / reinicia / elimina varios contenedores, en orden de dependencias cuando Compose lo indica. Con `?stream=1` responde con eventos de progreso en JSON por líneas y se puede cancelar cerrando la conexión |
 | `/containers/:id/logs` | GET (SSE) | Logs en vivo |
 | `/containers/:id/inspect` | GET | Detalles del contenedor; se omiten los valores que parecen sensibles |
 | `/containers/:id/env?name=` | GET | El valor real de UNA variable de entorno (acción explícita «Mostrar»; no se guarda en caché) |

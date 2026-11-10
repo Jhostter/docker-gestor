@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/) and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Live progress for group actions.** A panel lists each container with its state (queued, working, done, skipped, failed) and the current layer, and while a start waits for a dependency it says what for and how long (`Waiting for "db" to be ready… 12 s / 90 s`). It appears only when an action takes more than ~0.6 s, so quick actions do not flash it.
+- **Cancel.** Closing the connection stops the rest: what is already running finishes (nothing is interrupted halfway), no further layer or container is started and the server stops polling.
+- `POST /api/containers/batch?stream=1` answers with newline-delimited JSON events (`plan`, `item`, `done`); without it the response is the same `{ results }` as before.
+- `npm run e2e:progress` (negative-control tested: the polling check fails when disconnects are ignored; runs in CI on Linux).
+
 ## [0.6.0] - 2026-11-10
 
 ### Added
