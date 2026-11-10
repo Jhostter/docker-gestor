@@ -5,7 +5,7 @@ Thanks for your interest! / ¡Gracias por tu interés!
 ## Ideas that would help most
 
 - **Translations (i18n):** the UI strings are in Spanish and live mostly in `src/app/*.tsx`. Extracting them into a lightweight dictionary (no heavy dependencies) would be a great first contribution.
-- Windows / macOS support for the Docker socket and the service installer.
+- **Testing on macOS and Windows** with a real Docker (Docker Desktop, Colima…) and reporting back, or sending the missing autostart installers. See [docs/PLATFORMS.md](docs/PLATFORMS.md).
 - Authentication for optional remote use.
 - Tests.
 
@@ -22,7 +22,9 @@ Before opening a pull request:
 
 ```bash
 npm run typecheck
+npm test
 npm run build
+npm run smoke
 ```
 
 ## Guidelines

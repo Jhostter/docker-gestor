@@ -1,13 +1,18 @@
 // Servidor propio: Next.js + WebSocket para la terminal interactiva (docker exec).
 import { createServer } from "node:http";
-import next from "next";
 import { WebSocketServer } from "ws";
 import Docker from "dockerode";
+import { describe, detected } from "./src/lib/socket.mjs";
 
-const HOST = "127.0.0.1", PORT = 4455;
+// Producción por defecto; `--dev` activa el modo desarrollo (sin depender de la sintaxis de variables de cada shell).
+const dev = process.argv.includes("--dev");
+process.env.NODE_ENV = dev ? "development" : "production";
+const { default: next } = await import("next");
+
+const HOST = "127.0.0.1", PORT = Number(process.env.PORT ?? 4455);
 const ALLOWED = new Set([`127.0.0.1:${PORT}`, `localhost:${PORT}`]);
-const dev = process.env.NODE_ENV !== "production";
-const docker = new Docker({ socketPath: process.env.DOCKER_SOCKET ?? "/var/run/docker.sock" });
+const endpoint = detected();
+const docker = new Docker(endpoint.options);
 const app = next({ dev, hostname: HOST, port: PORT });
 await app.prepare();
 const handle = app.getRequestHandler();
@@ -47,4 +52,4 @@ async function terminal(ws, id) {
   }
 }
 
-server.listen(PORT, HOST, () => console.log(`Docker Gestor en http://localhost:${PORT}`));
+server.listen(PORT, HOST, () => console.log(`Docker Gestor en http://localhost:${PORT} · Docker: ${describe(endpoint.options)} (${endpoint.source})`));

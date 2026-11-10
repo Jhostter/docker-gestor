@@ -43,7 +43,7 @@ systemctl --user status docker-gestor
 
 | Requisito | Detalle |
 |---|---|
-| Docker | Motor funcionando y socket en `/var/run/docker.sock` |
+| Docker | Motor funcionando (el socket se detecta solo; ver [PLATFORMS](PLATFORMS.md)) |
 | Permisos | Tu usuario debe pertenecer al grupo `docker` (`id -nG`) |
 | Node.js | Versión reciente (usa el SQLite integrado `node:sqlite`; probado con Node 26) |
 | systemd | Con sesión de usuario (`systemctl --user`) |
@@ -256,8 +256,9 @@ Variables de entorno (todas opcionales):
 
 | Variable | Por defecto | Efecto |
 |---|---|---|
-| `DOCKER_SOCKET` | `/var/run/docker.sock` | Ruta del socket de Docker |
-| `DATA_DIR` | `~/.local/share/docker-gestor` | Dónde se guarda el historial |
+| `DOCKER_SOCKET` / `DOCKER_HOST` | autodetectado | Socket, tubería o `tcp://` de Docker (ver [PLATFORMS](PLATFORMS.md)) |
+| `PORT` | `4455` | Puerto (siempre en `127.0.0.1`) |
+| `DATA_DIR` | según el sistema (Linux: `~/.local/share/docker-gestor`) | Dónde se guarda el historial |
 | `SAMPLE_SECONDS` | `15` | Intervalo de muestreo |
 | `RETENTION_DAYS` | `7` | Días de historial |
 
@@ -279,7 +280,9 @@ Guarda y reinicia: `systemctl --user restart docker-gestor`.
 
 > Muestrear con menos frecuencia (`SAMPLE_SECONDS` mayor) reduce aún más el consumo; con más frecuencia aumenta la precisión de las gráficas y el coste.
 
-El puerto (`4455`) y la dirección (`127.0.0.1`) están definidos en `server.mjs` y en `src/lib/docker.ts` (lista de hosts permitidos). Si los cambias, hazlo en ambos sitios y recompila.
+Para cambiar el puerto basta con `PORT` (la lista de hosts permitidos lo sigue automáticamente). La dirección `127.0.0.1` es fija a propósito.
+
+**macOS y Windows:** ver [PLATFORMS.md](PLATFORMS.md) para la compatibilidad (probado a diario solo en Linux), la detección de Docker y cómo dejarlo en marcha.
 
 ## 14. Consumo de recursos
 
@@ -386,7 +389,9 @@ src/app/api/**                API REST y flujos SSE
 ```bash
 systemctl --user stop docker-gestor     # libera el puerto 4455
 npm run dev                             # recarga en caliente
-npx tsc --noEmit                        # comprobar tipos
+npm run typecheck                       # comprobar tipos
+npm test                                # pruebas unitarias
+npm run smoke                           # arranca el servidor compilado sin Docker y lo comprueba
 ```
 
 Cuando termines: `npm run build && systemctl --user start docker-gestor`.

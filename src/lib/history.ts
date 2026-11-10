@@ -8,9 +8,17 @@ const INTERVAL = Number(process.env.SAMPLE_SECONDS ?? 15) * 1000;
 const RETENTION_MS = Number(process.env.RETENTION_DAYS ?? 7) * 864e5;
 const g = globalThis as unknown as { __db?: DatabaseSync; __timer?: NodeJS.Timeout; __pruned?: number };
 
+/** Carpeta de datos según el sistema (en Linux respeta XDG_DATA_HOME). */
+function defaultDataDir() {
+  const h = homedir();
+  if (process.platform === "win32") return join(process.env.LOCALAPPDATA ?? join(h, "AppData", "Local"), "docker-gestor");
+  if (process.platform === "darwin") return join(h, "Library", "Application Support", "docker-gestor");
+  return join(process.env.XDG_DATA_HOME ?? join(h, ".local", "share"), "docker-gestor");
+}
+
 function db(): DatabaseSync {
   if (g.__db) return g.__db;
-  const dir = process.env.DATA_DIR ?? join(homedir(), ".local/share/docker-gestor");
+  const dir = process.env.DATA_DIR ?? defaultDataDir();
   mkdirSync(dir, { recursive: true });
   const d = new DatabaseSync(join(dir, "history.db"));
   d.exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA temp_store=MEMORY; PRAGMA cache_size=-512;

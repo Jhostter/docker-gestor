@@ -26,10 +26,12 @@
     "node": ">=22.13"
   },
   "scripts": {
-    "dev": "node server.mjs",
+    "dev": "node server.mjs --dev",
     "build": "next build",
-    "start": "NODE_ENV=production node server.mjs",
-    "typecheck": "tsc --noEmit"
+    "start": "node server.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.mjs\"",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

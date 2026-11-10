@@ -2,7 +2,7 @@
 
 A lightweight, local web dashboard to manage Docker from your browser — containers, live logs, an interactive terminal, Compose stacks, images, volumes, networks, live events and resource-usage charts with history.
 
-Built to stay out of your way: **~0.2–0.5 % of one CPU core and ~55 MB of RAM** while idle with a tab open.
+Built to stay out of your way (measured on Linux): **~0.2–0.5 % of one CPU core and ~55 MB of RAM** while idle with a tab open.
 
 [🇪🇸 Leer en español](#-español)
 
@@ -25,10 +25,20 @@ Built to stay out of your way: **~0.2–0.5 % of one CPU core and ~55 MB of RAM*
 
 | | |
 |---|---|
-| Docker | Engine running, socket at `/var/run/docker.sock` |
-| Permissions | Your user must be in the `docker` group |
+| Docker | Engine running (the socket / named pipe is auto-detected — see [platforms](docs/PLATFORMS.md)) |
+| Permissions | Linux: your user must be in the `docker` group |
 | Node.js | **22.13+** (uses the built-in `node:sqlite`) |
-| Linux + systemd | Only needed for the optional service installer |
+| Linux + systemd | Only for the optional service installer |
+
+### Platform support
+
+| | Linux | macOS | Windows |
+|---|:---:|:---:|:---:|
+| Used daily / verified with real Docker | ✅ | ❌ not yet | ❌ not yet |
+| CI (build, tests, boot) | ✅ | ✅ | ✅ |
+| Autostart | systemd script | launchd (manual) | Task Scheduler (manual) |
+
+macOS and Windows should work (Docker Desktop, Colima, Rancher Desktop and OrbStack are detected) but **have not been tested with a real Docker yet** — feedback is very welcome. Details and autostart recipes: [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
 ## Quick start
 
@@ -37,7 +47,7 @@ git clone https://github.com/Jhostter/docker-gestor.git
 cd docker-gestor
 npm install
 npm run build
-npm start            # http://localhost:4455
+npm start            # http://localhost:4455 (same commands on Linux, macOS and Windows)
 ```
 
 ### Install as a service (starts with your machine)
@@ -59,8 +69,9 @@ Optional environment variables:
 
 | Variable | Default | Description |
 |---|---|---|
-| `DOCKER_SOCKET` | `/var/run/docker.sock` | Docker socket path |
-| `DATA_DIR` | `~/.local/share/docker-gestor` | Where the history database is stored |
+| `DOCKER_SOCKET` / `DOCKER_HOST` | auto-detected | Docker socket, named pipe or `tcp://` endpoint |
+| `PORT` | `4455` | Port (always bound to `127.0.0.1`) |
+| `DATA_DIR` | per OS (Linux: `~/.local/share/docker-gestor`) | Where the history database is stored |
 | `SAMPLE_SECONDS` | `15` | Usage sampling interval |
 | `RETENTION_DAYS` | `7` | Days of history to keep |
 
@@ -84,7 +95,9 @@ See [SECURITY.md](SECURITY.md) to report a vulnerability.
 ```bash
 npm run dev          # hot reload (stop the service first: it uses port 4455)
 npm run typecheck
+npm test             # unit tests (Docker endpoint detection)
 npm run build
+npm run smoke        # boots the built server without Docker and checks it
 ```
 
 Stack: Next.js (App Router) · React · Tailwind CSS 4 · dockerode · `node:sqlite` · ws · xterm.js.
@@ -102,6 +115,8 @@ Issues and pull requests are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md)
 # 🇪🇸 Español
 
 Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**.
+
+**Plataformas:** probado a diario solo en Linux. macOS y Windows compilan y arrancan en el CI, pero **no se han probado con un Docker real**; ver [docs/PLATFORMS.md](docs/PLATFORMS.md).
 
 **Inicio rápido**
 
