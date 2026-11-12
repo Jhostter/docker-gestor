@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="docs/img/logo.svg" alt="" width="40" align="absmiddle"> Docker Gestor
+# <img src="docs/img/logo.svg" alt="" width="40" align="absmiddle"> Docker Kong
 
 **A lightweight, local web dashboard for Docker — in about 55 MB of RAM.**
 
@@ -9,7 +9,7 @@
 ![Node 22.13+](https://img.shields.io/badge/node-%E2%89%A522.13-339933)
 ![UI: English · Español](https://img.shields.io/badge/UI-English%20%C2%B7%20Espa%C3%B1ol-informational)
 
-<img src="docs/img/demo.gif" alt="Docker Gestor demo: start/stop, live logs, usage chart, Compose, events, light theme and language switch" width="900">
+<img src="docs/img/demo.gif" alt="Docker Kong demo: start/stop, live logs, usage chart, Compose, events, light theme and language switch" width="900">
 
 [Español](#-español) · [Usage guide](docs/GUIDE.md) · [Guía de uso](docs/GUIA.md) · [Platforms](docs/PLATFORMS.md)
 
@@ -19,7 +19,7 @@ Containers, live logs, an interactive terminal, Compose stacks, images, volumes,
 
 ## Why another Docker UI?
 
-Docker Gestor is built for **one person, one machine**: no database server, no agent, no accounts. It listens on `127.0.0.1`, keeps CPU/RAM history in a single SQLite file, and does no work while nobody is looking at the page (updates are driven by Docker events, not by polling).
+Docker Kong is built for **one person, one machine**: no database server, no agent, no accounts. It listens on `127.0.0.1`, keeps CPU/RAM history in a single SQLite file, and does no work while nobody is looking at the page (updates are driven by Docker events, not by polling).
 
 It is **not** a replacement for the bigger tools. Use something else if you need:
 
@@ -137,7 +137,7 @@ Optional environment variables:
 
 ## ⚠️ Security
 
-Controlling Docker is equivalent to having root on the machine. Docker Gestor is designed for **local, single-user use**:
+Controlling Docker is equivalent to having root on the machine. Docker Kong is designed for **local, single-user use**:
 
 - It listens on `127.0.0.1` only and rejects requests whose `Host`/`Origin` is not `localhost:<port>` (CSRF / DNS-rebinding protection, including the terminal WebSocket).
 - Container ports created from the UI are published on `127.0.0.1` only.

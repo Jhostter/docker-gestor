@@ -38,7 +38,7 @@ const images = (await get("/api/images")).body, containers = (await get("/api/co
 const running = containers.find((x) => x.name === "shop-api"), nginx = images.find((i) => i.tags.includes("nginx:1.27-alpine"));
 const bad = await clean({ containers: [running.id], images: [nginx.id], volumes: ["shop_pgdata"] });
 check(bad.status === 200 && bad.body.results.length === 3 && bad.body.results.every((x) => x.ok === false), "asking to remove a running container, an image and a volume that are in use fails for all three");
-check(bad.body.results[0].error === "container is running", "the running container is refused by Docker Gestor itself (before asking Docker)");
+check(bad.body.results[0].error === "container is running", "the running container is refused by Docker Kong itself (before asking Docker)");
 check(/used by a container/.test(bad.body.results[1].error ?? "") && /in use/.test(bad.body.results[2].error ?? ""), "Docker's refusals are reported, not hidden");
 const after = { containers: (await get("/api/containers")).body, images: (await get("/api/images")).body, vols: (await get("/api/volumes")).body };
 check(after.containers.some((x) => x.name === "shop-api") && after.images.some((i) => i.tags.includes("nginx:1.27-alpine")) && after.vols.some((v) => v.name === "shop_pgdata"), "nothing in use was actually removed");

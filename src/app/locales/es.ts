@@ -58,7 +58,7 @@ export const es = {
   al_r_unhealthy: "No saludable", al_r_unhealthy_h: "Falla su comprobación de salud; avisa también cuando se recupera.", al_r_loop: "Reinicios en bucle", al_r_loop_h: "Se cae varias veces seguidas en poco tiempo.",
   al_r_cpu: "CPU alta", al_r_cpu_h: "Se mantiene por encima del porcentaje durante todo el periodo.", al_r_mem: "Memoria alta", al_r_mem_h: "Porcentaje de su límite de memoria (o de la RAM del equipo si no tiene límite).",
   al_f_count: "Caídas", al_f_minutes: "Minutos", al_f_percent: "Porcentaje", al_cooldown: "No repetir la misma alerta durante (min)",
-  al_channels: "Dónde avisar", al_browser: "Notificaciones del navegador", al_browser_h: "Solo mientras haya una pestaña de Docker Gestor abierta.",
+  al_channels: "Dónde avisar", al_browser: "Notificaciones del navegador", al_browser_h: "Solo mientras haya una pestaña de Docker Kong abierta.",
   al_perm_granted: "Permiso concedido", al_perm_denied: "Bloqueadas en el navegador", al_perm_default: "Aún sin permiso", al_perm_unsupported: "Tu navegador no las admite", al_perm_ask: "Permitir notificaciones",
   al_telegram: "Telegram", al_tg_hint: "Crea un bot con @BotFather, escríbele un mensaje y usa su token y tu ID de chat.", al_tg_token: "Token del bot", al_tg_chat: "ID de chat",
   al_secret_saved: "Guardado (vacío = conservar)", al_remove_secret: "Quitar",

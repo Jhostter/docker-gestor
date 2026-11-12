@@ -121,13 +121,13 @@ const MSG = {
     died: "🔴 {name} exited with code {code}", oom: "🔴 {name} was killed: out of memory", unhealthy: "🟠 {name} is unhealthy", recovered: "🟢 {name} is healthy again",
     restartLoop: "🟠 {name} crashed {count} times in {minutes} min", cpu: "🟠 {name}: CPU at {percent}% for {minutes}+ min", memory: "🟠 {name}: memory at {percent}% for {minutes}+ min",
     back_up: "🟢 {name} is running again", cpu_ok: "🟢 {name}: CPU back to {percent}%", memory_ok: "🟢 {name}: memory back to {percent}%",
-    test: "✅ Docker Gestor test alert",
+    test: "✅ Docker Kong test alert",
   },
   es: {
     died: "🔴 {name} terminó con código {code}", oom: "🔴 {name} fue detenido: sin memoria", unhealthy: "🟠 {name} no está saludable", recovered: "🟢 {name} vuelve a estar saludable",
     restartLoop: "🟠 {name} se cayó {count} veces en {minutes} min", cpu: "🟠 {name}: CPU al {percent}% durante {minutes}+ min", memory: "🟠 {name}: memoria al {percent}% durante {minutes}+ min",
     back_up: "🟢 {name} vuelve a estar en marcha", cpu_ok: "🟢 {name}: CPU de nuevo al {percent}%", memory_ok: "🟢 {name}: memoria de nuevo al {percent}%",
-    test: "✅ Alerta de prueba de Docker Gestor",
+    test: "✅ Alerta de prueba de Docker Kong",
   },
 };
 export function formatAlert(alert, lang = "en", host = "") {

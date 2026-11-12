@@ -1,4 +1,4 @@
-# Docker Gestor — Guía de uso
+# Docker Kong — Guía de uso
 
 Panel web local para gestionar Docker desde el navegador: contenedores, logs, terminal, Compose, imágenes, volúmenes, redes, eventos y gráficas de consumo. Está pensado para uso personal en tu máquina y consume muy pocos recursos.
 
@@ -95,13 +95,13 @@ npm run tray              # o ejecútalo en primer plano (Ctrl+C para salir)
 
 | El icono | Significa |
 |---|---|
-| 🟢 verde | Docker Gestor y Docker responden |
+| 🟢 verde | Docker Kong y Docker responden |
 | 🟠 ámbar | Alertas nuevas desde la última vez que abriste la app desde el icono |
-| ⚫ gris | Docker Gestor o Docker no responden |
+| ⚫ gris | Docker Kong o Docker no responden |
 
 El menú, en tu idioma (español o inglés, según la configuración regional del sistema):
 
-- **Abrir Docker Gestor** — abre la página en el navegador (y marca las alertas como vistas, con lo que el icono vuelve a verde).
+- **Abrir Docker Kong** — abre la página en el navegador (y marca las alertas como vistas, con lo que el icono vuelve a verde).
 - **N de M contenedores en marcha**, la **línea de alertas** (activadas / desactivadas, cuántas silenciadas, o *Todas las alertas silenciadas hasta las 15:30*) y, si las hay, **N alertas nuevas — abrir**.
 - **Silenciar todas las alertas 1 hora** / **Reactivar todas las alertas** — el mismo silencio de *todo* que puedes poner en **Alertas → Silenciadas**.
 - **Reiniciar servicio / Parar servicio** (y **Iniciar servicio** si el servidor está caído) — en Linux, cuando existe el servicio systemd de usuario `docker-gestor` de la [sección 2](#instalar-como-servicio). Sin gestor de servicios estas entradas se ocultan y el icono dice cómo arrancarlo.
@@ -119,7 +119,7 @@ Consulta la API local cada 5 s y solo habla con `http://127.0.0.1:4455` (cambia 
 | macOS | ⚠️ **Sin probar.** El binario es Intel (x86-64): en Apple Silicon necesita Rosetta. Arranca con un LaunchAgent. Es un binario sin firmar, así que Gatekeeper puede pedirte permiso |
 | Windows | ⚠️ **Sin probar.** Binario x86-64, arranca desde la carpeta Inicio sin ventana de consola. Sin control del servicio |
 
-**Por qué es un extra aparte.** El icono usa [`systray2`](https://github.com/felixhao28/node-systray) (MIT), que trae un **binario precompilado** y no se actualiza desde 2022. Es un compromiso distinto al del resto de la app, así que vive en `tray/` con su propio `package.json` (versión fijada), `tray:install` lo instala con `--ignore-scripts` y la app en sí no tiene esa dependencia. Si no lo instalas, nada cambia. El `chmod` propio del paquete falla en las versiones actuales de Node, así que Docker Gestor copia el binario a `<carpeta de datos>/tray-bin/` y le da permiso de ejecución él mismo.
+**Por qué es un extra aparte.** El icono usa [`systray2`](https://github.com/felixhao28/node-systray) (MIT), que trae un **binario precompilado** y no se actualiza desde 2022. Es un compromiso distinto al del resto de la app, así que vive en `tray/` con su propio `package.json` (versión fijada), `tray:install` lo instala con `--ignore-scripts` y la app en sí no tiene esa dependencia. Si no lo instalas, nada cambia. El `chmod` propio del paquete falla en las versiones actuales de Node, así que Docker Kong copia el binario a `<carpeta de datos>/tray-bin/` y le da permiso de ejecución él mismo.
 
 > El arranque automático guarda la ruta absoluta del `node` con el que se instaló. Si cambias de versión de Node, vuelve a ejecutar `npm run tray:install`.
 
@@ -132,7 +132,7 @@ Consulta la API local cada 5 s y solo habla con `http://127.0.0.1:4455` (cambia 
 - **Ventanas**: se cierran con `Esc`, con ✕ o haciendo clic fuera (la terminal es la excepción, ver más abajo).
 - **Carga**: mientras llegan los datos ves filas de relleno (un esqueleto), así el diseño no da saltos.
 
-El título de la pestaña del navegador muestra cuántos contenedores están en marcha: `(12) Docker Gestor`.
+El título de la pestaña del navegador muestra cuántos contenedores están en marcha: `(12) Docker Kong`.
 
 ### Paleta de comandos
 
@@ -148,7 +148,7 @@ Cada palabra que escribas tiene que coincidir (en cualquier orden), se ignoran m
 
 La interfaz sigue a Docker mediante su flujo de eventos, así que un contenedor que inicies, detengas o elimines desde la línea de comandos, Compose u otra herramienta aparece en menos de un segundo **sin recargar la página**. También se pone al día sola cuando:
 
-- **Docker deja de responder un rato** (se reinicia, el equipo despierta…): un aviso ámbar dice *Docker no responde* y la página reconecta por sí misma, refrescando en cuanto Docker vuelve. Un aviso rojo significa que se perdió el **servicio de Docker Gestor** en sí, que es otra cosa.
+- **Docker deja de responder un rato** (se reinicia, el equipo despierta…): un aviso ámbar dice *Docker no responde* y la página reconecta por sí misma, refrescando en cuanto Docker vuelve. Un aviso rojo significa que se perdió el **servicio de Docker Kong** en sí, que es otra cosa.
 - **Llegan muchos eventos a la vez** (detener un stack entero): refresca a un ritmo constante en lugar de esperar a que acabe la tormenta.
 - **Llega tarde una respuesta lenta y ya antigua**: nunca pisa datos más nuevos.
 - **Vuelves a la pestaña** pasado un tiempo.
@@ -238,7 +238,7 @@ Los contenedores se agrupan por stack de Compose (se desactiva con *Agrupar por 
 - **▶ ■ ⟳ para todo el grupo:** iniciar todos, detener todos, reiniciar todos. Actúan sobre los **contenedores mismos**, así que también sirven para grupos que Compose no puede gestionar (stacks creados con otras herramientas como Supabase CLI, o contenedores que no pertenecen a ningún stack).
 - **Una casilla** para seleccionar todo el grupo y una **flecha ▾** para plegarlo (se recuerda entre visitas).
 
-**El orden importa.** Cuando Compose declara dependencias (`depends_on`), Docker Gestor las respeta: **inicia** primero la base de datos y la caché, luego la API y luego el servidor web, y **detiene** en el orden inverso. Los contenedores de una misma capa se ejecutan en paralelo, así que un stack grande sigue siendo rápido. Sin información de dependencias (o fuera de Compose) todo se ejecuta a la vez. Reiniciar sigue el orden de inicio.
+**El orden importa.** Cuando Compose declara dependencias (`depends_on`), Docker Kong las respeta: **inicia** primero la base de datos y la caché, luego la API y luego el servidor web, y **detiene** en el orden inverso. Los contenedores de una misma capa se ejecutan en paralelo, así que un stack grande sigue siendo rápido. Sin información de dependencias (o fuera de Compose) todo se ejecuta a la vez. Reiniciar sigue el orden de inicio.
 
 **Esperar a que un servicio esté listo.** Si Compose declara una dependencia como `service_healthy` (o `service_completed_successfully`, típico de contenedores de preparación que se ejecutan una vez), iniciar o reiniciar un grupo **espera** a que esté lista antes de arrancar lo que depende de ella, igual que hace `docker compose up`. Si la dependencia nunca llega a estar lista, lo que depende de ella **no se arranca** (ni lo que depende de eso), y la ventana de errores explica por qué: se agotó el tiempo, pasó a no saludable o se detuvo. Una dependencia sin comprobación de salud no se espera, `service_started` nunca espera, y parar o eliminar tampoco esperan.
 
@@ -413,9 +413,9 @@ Cada regla activada tiene dos opciones extra:
 
 ### Canales
 
-- **Notificaciones del navegador** — siempre aparece un aviso en la página abierta, y una notificación del sistema si la pestaña está en segundo plano. Concede el permiso con el botón de la sección. Solo funciona con una pestaña de Docker Gestor abierta.
+- **Notificaciones del navegador** — siempre aparece un aviso en la página abierta, y una notificación del sistema si la pestaña está en segundo plano. Concede el permiso con el botón de la sección. Solo funciona con una pestaña de Docker Kong abierta.
 - **Telegram** — funciona con la pestaña cerrada. Crea un bot con [@BotFather](https://t.me/BotFather), escríbele cualquier mensaje y pon su **token** y tu **ID de chat** (un número, o `@tucanal`).
-- **Webhook** — funciona con la pestaña cerrada. Docker Gestor envía un `POST` a tu URL, con una cabecera `Authorization` opcional. El formato **JSON** sirve tal cual para webhooks de Discord y Slack (incluye `text` y `content`); el **texto plano** encaja con ntfy y servicios parecidos.
+- **Webhook** — funciona con la pestaña cerrada. Docker Kong envía un `POST` a tu URL, con una cabecera `Authorization` opcional. El formato **JSON** sirve tal cual para webhooks de Discord y Slack (incluye `text` y `content`); el **texto plano** encaja con ntfy y servicios parecidos.
 
 ```json
 {
@@ -468,7 +468,7 @@ Docker puede llenar el disco sin que te des cuenta. La sección **Disco** muestr
 
 - **No se borra nada hasta que eliges elementos y confirmas.** Puedes elegir por elemento o por grupo.
 - Los elementos se eliminan **uno a uno por el identificador exacto que viste**, nunca con un `docker system prune` global, así que no se toca nada creado después de la vista previa.
-- Nunca usa `force`: Docker se niega a borrar lo que está en uso, y además Docker Gestor rechaza por su cuenta los contenedores en marcha.
+- Nunca usa `force`: Docker se niega a borrar lo que está en uso, y además Docker Kong rechaza por su cuenta los contenedores en marcha.
 - Una imagen que use cualquier contenedor (incluso detenido) y un volumen que monte cualquier contenedor **nunca se ofrecen**.
 - Borrar **volúmenes** exige reconocer expresamente que los datos se perderán.
 - Si algo no se puede eliminar, recibes la lista con el motivo que da Docker; nada se da por eliminado si no lo está.

@@ -1,4 +1,4 @@
-// The Docker Gestor mark: a monkey's face, drawn once from simple shapes on a 32x32 grid. The app logo, the favicon,
+// The Docker Kong mark: a monkey's face, drawn once from simple shapes on a 32x32 grid. The app logo, the favicon,
 // the README banner and the tray icons are all generated from this list (see tray/make-icons.mjs), so they cannot drift.
 // Roles: "head" (fur), "face" (muzzle, inner ears), "ink" (eyes, nostrils, smile).
 export const BRAND = { head: "#a8683a", face: "#f5dcb8", ink: "#2e1d12" };

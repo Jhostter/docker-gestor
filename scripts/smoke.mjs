@@ -18,7 +18,7 @@ try {
   check(up, "the server boots and serves the page");
 
   const page = await (await fetch(BASE)).text();
-  check(page.includes("Docker Gestor"), "the page contains the UI");
+  check(page.includes("Docker Kong"), "the page contains the UI");
 
   const api = await fetch(`${BASE}/api/containers`);
   const body = await api.json().catch(() => ({}));

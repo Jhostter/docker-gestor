@@ -60,7 +60,7 @@ export const en: Record<keyof typeof es, string> = {
   al_r_unhealthy: "Unhealthy", al_r_unhealthy_h: "Fails its health check; also tells you when it recovers.", al_r_loop: "Restart loop", al_r_loop_h: "Crashes several times in a short time.",
   al_r_cpu: "High CPU", al_r_cpu_h: "Stays above the percentage for the whole period.", al_r_mem: "High memory", al_r_mem_h: "Percentage of its memory limit (or of the machine's RAM when it has no limit).",
   al_f_count: "Crashes", al_f_minutes: "Minutes", al_f_percent: "Percent", al_cooldown: "Do not repeat the same alert for (min)",
-  al_channels: "Where to notify", al_browser: "Browser notifications", al_browser_h: "Only while a Docker Gestor tab is open.",
+  al_channels: "Where to notify", al_browser: "Browser notifications", al_browser_h: "Only while a Docker Kong tab is open.",
   al_perm_granted: "Permission granted", al_perm_denied: "Blocked in the browser", al_perm_default: "No permission yet", al_perm_unsupported: "Your browser does not support them", al_perm_ask: "Allow notifications",
   al_telegram: "Telegram", al_tg_hint: "Create a bot with @BotFather, send it a message and use its token and your chat ID.", al_tg_token: "Bot token", al_tg_chat: "Chat ID",
   al_secret_saved: "Saved (empty = keep)", al_remove_secret: "Remove",

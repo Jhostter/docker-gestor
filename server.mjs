@@ -52,4 +52,4 @@ async function terminal(ws, id) {
   }
 }
 
-server.listen(PORT, HOST, () => console.log(`Docker Gestor listening on http://localhost:${PORT} · Docker: ${describe(endpoint.options)} (${endpoint.source})`));
+server.listen(PORT, HOST, () => console.log(`Docker Kong listening on http://localhost:${PORT} · Docker: ${describe(endpoint.options)} (${endpoint.source})`));

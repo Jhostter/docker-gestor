@@ -90,16 +90,16 @@ $trigger  = New-ScheduledTaskTrigger -AtLogOn
 $settings = New-ScheduledTaskSettingsSet -Priority 7 -ExecutionTimeLimit ([TimeSpan]::Zero) `
             -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
             -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-Register-ScheduledTask -TaskName "Docker Gestor" -Action $action -Trigger $trigger -Settings $settings
-Start-ScheduledTask -TaskName "Docker Gestor"
+Register-ScheduledTask -TaskName "Docker Kong" -Action $action -Trigger $trigger -Settings $settings
+Start-ScheduledTask -TaskName "Docker Kong"
 ```
 
-Stop / remove: `Stop-ScheduledTask "Docker Gestor"` · `Unregister-ScheduledTask "Docker Gestor" -Confirm:$false`. `Priority 7` is below-normal. A console window will be visible while it runs.
+Stop / remove: `Stop-ScheduledTask "Docker Kong"` · `Unregister-ScheduledTask "Docker Kong" -Confirm:$false`. `Priority 7` is below-normal. A console window will be visible while it runs.
 
 ## Known limitations on Docker Desktop
 
 - The mount point shown in **Volumes** is a path inside Docker's virtual machine, not on your disk.
-- Compose actions use the project folder recorded in the stack's labels; they only work if that folder is reachable from where Docker Gestor runs (e.g. not if Docker Gestor runs on Windows and the stack was created inside WSL2).
+- Compose actions use the project folder recorded in the stack's labels; they only work if that folder is reachable from where Docker Kong runs (e.g. not if Docker Kong runs on Windows and the stack was created inside WSL2).
 
 ---
 
@@ -127,4 +127,4 @@ En este orden (al arrancar, el servidor imprime cuál usó): `DOCKER_SOCKET` →
 
 ## Dejarlo en marcha
 
-Los límites de systemd solo existen en Linux. En macOS (launchd) y Windows (Programador de tareas) las instrucciones y los comandos están arriba, en inglés, y **no están probados**. Limitaciones en Docker Desktop: la ruta que muestra *Volúmenes* es la de la máquina virtual de Docker, y las acciones de Compose solo funcionan si la carpeta del proyecto es accesible desde donde corre Docker Gestor.
+Los límites de systemd solo existen en Linux. En macOS (launchd) y Windows (Programador de tareas) las instrucciones y los comandos están arriba, en inglés, y **no están probados**. Limitaciones en Docker Desktop: la ruta que muestra *Volúmenes* es la de la máquina virtual de Docker, y las acciones de Compose solo funcionan si la carpeta del proyecto es accesible desde donde corre Docker Kong.

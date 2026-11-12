@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// A status icon for Docker Gestor in the system tray (Linux, macOS, Windows).
+// A status icon for Docker Kong in the system tray (Linux, macOS, Windows).
 //   npm run tray:install      installs it and makes it start with your session
 //   npm run tray              runs it in the foreground
-// It only talks to the local Docker Gestor API (http://127.0.0.1:$PORT, default 4455) and, on Linux, to your systemd
+// It only talks to the local Docker Kong API (http://127.0.0.1:$PORT, default 4455) and, on Linux, to your systemd
 // user service. It never touches your containers. See docs/GUIDE.md ("Tray icon").
 import { execFile, spawn } from "node:child_process";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from "node:fs";
@@ -64,7 +64,7 @@ function prepareBinary(require) {
 }
 const icon = (name) => readFileSync(join(HERE, "icons", `${name}.${process.platform === "win32" ? "ico" : "png"}`)).toString("base64");
 
-/* ---- talking to Docker Gestor ---- */
+/* ---- talking to Docker Kong ---- */
 async function call(path, { method = "GET", body } = {}) {
   const r = await fetch(BASE + path, { method, headers: body ? { "content-type": "application/json" } : undefined, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(3000) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);

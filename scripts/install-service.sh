@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs Docker Gestor as a systemd user service (starts on its own, with bounded resources).
+# Installs Docker Kong as a systemd user service (starts on its own, with bounded resources).
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 NODE="$(readlink -f "$(command -v node)")"   # stable path (fnm uses temporary symlinks)
@@ -9,7 +9,7 @@ cd "$DIR" && npm run build
 mkdir -p "$(dirname "$UNIT")"
 cat > "$UNIT" <<UNITEOF
 [Unit]
-Description=Docker Gestor (local Docker dashboard)
+Description=Docker Kong (local Docker dashboard)
 
 [Service]
 ExecStart=$NODE $DIR/server.mjs

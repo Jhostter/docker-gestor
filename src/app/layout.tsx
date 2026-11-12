@@ -1,5 +1,5 @@
 import "./globals.css";
-export const metadata = { title: "Docker Gestor", description: "Panel local para gestionar Docker" };
+export const metadata = { title: "Docker Kong", description: "Panel local para gestionar Docker" };
 
 // Apply the saved theme before first paint to avoid a flash.
 const themeScript = `try{var t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t}catch(e){}`;

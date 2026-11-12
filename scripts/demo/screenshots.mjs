@@ -1,5 +1,5 @@
 // Regenerates the README screenshots, the demo GIF and the social preview image.
-// It runs Docker Gestor against the fictional mock Docker API, so no real containers are involved.
+// It runs Docker Kong against the fictional mock Docker API, so no real containers are involved.
 //   npm run build && node scripts/demo/screenshots.mjs [outputDir]
 // Requires Chrome/Chromium (set CHROME_PATH if it is not on the PATH) and ffmpeg (only for the GIF).
 import { spawn, spawnSync } from "node:child_process";
@@ -7,6 +7,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+import http from "node:http";
 import WebSocket from "ws";
 import { monkeySvg } from "../../src/app/monkey.mjs";
 
@@ -134,7 +135,7 @@ const html = `<!doctype html><meta charset=utf-8><style>*{box-sizing:border-box}
 h1{font-size:62px;margin:0;letter-spacing:-1px;white-space:nowrap}p{font-size:30px;color:#9a9aa8;margin:18px 0 0;line-height:1.35}.l{position:absolute;left:70px;top:120px;width:560px}
 .chips{margin-top:34px;display:flex;flex-wrap:wrap;gap:10px}.chips span{background:#1c1c23;border:1px solid #2a2a33;border-radius:999px;padding:8px 18px;font-size:22px;color:#ececf1}
 img{position:absolute;left:640px;top:150px;width:900px;border-radius:14px;border:1px solid #2a2a33;box-shadow:0 30px 80px #000a}</style>
-<div class=l><h1><span style="display:inline-block;width:64px;vertical-align:-10px;margin-right:14px">${monkeySvg()}</span>Docker Gestor</h1><p>A lightweight, local web dashboard for Docker.</p><div class=chips><span>~55 MB RAM</span><span>live logs</span><span>terminal</span><span>Compose</span><span>usage history</span></div></div><img src="data:image/png;base64,${shot}">`;
+<div class=l><h1><span style="display:inline-block;width:64px;vertical-align:-10px;margin-right:14px">${monkeySvg()}</span>Docker Kong</h1><p>A lightweight, local web dashboard for Docker.</p><div class=chips><span>~55 MB RAM</span><span>live logs</span><span>terminal</span><span>Compose</span><span>usage history</span></div></div><img src="data:image/png;base64,${shot}">`;
 await send("Page.navigate", { url: "data:text/html;base64," + Buffer.from(html).toString("base64") }); await sleep(800); await png("social-preview");
 
 // 4) demo GIF: record frames while driving the UI
@@ -162,5 +163,22 @@ if (spawnSync("ffmpeg", ["-version"], { stdio: "ignore" }).status === 0) {
   const r = spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", join(tmp, "frames.txt"), "-vf", "fps=10,scale=900:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=96[p];[b][p]paletteuse=dither=bayer:bayer_scale=4", "-loop", "0", join(OUT, "demo.gif")]);
   console.log("   demo.gif", r.status === 0 ? `${(statSync(join(OUT, "demo.gif")).size / 1048576).toFixed(1)} MB, ${frames.length} frames` : "ffmpeg failed: " + r.stderr);
 } else console.log("ffmpeg not found: skipping the GIF");
+// 5) group start that waits for a database that is not ready yet: live progress, then the failure list
+const mock = (method, path) => new Promise((res) => http.request({ socketPath: sock, path: "/_demo" + path, method }, (r) => { r.resume(); r.on("end", res); }).end());
+const shopIds = async () => (await (await fetch(`${BASE}/api/containers`)).json()).filter((c) => c.name.startsWith("shop-")).map((c) => c.id);
+const batchApi = async (action) => fetch(`${BASE}/api/containers/batch`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action, ids: await shopIds() }) });
+const startShop = () => ev(`[...document.querySelectorAll('button[aria-label^="Start all: "]')].find(b=>/shop/i.test(b.getAttribute('aria-label'))).click()`);
+console.log("Progress …");
+await batchApi("stop"); await mock("POST", "/health/shop-db/starting"); await sleep(600);
+await open({ h: 1000 }); await startShop(); await sleep(3600); await png("progress");
+await click("Cancel"); await sleep(1500);
+// the same start, but with a 3 s limit so the wait ends in failures
+procs[1].kill(); await sleep(600);
+procs[1] = spawn(process.execPath, ["server.mjs"], { env: { ...process.env, PORT: String(PORT), DOCKER_SOCKET: sock, DATA_DIR: join(tmp, "data"), ALERT_HOST: "demo-server", TELEGRAM_API_URL: "http://127.0.0.1:9", HEALTH_WAIT_SECONDS: "3" }, stdio: "ignore" });
+for (let i = 0; i < 60; i++) { try { if ((await fetch(BASE)).ok) break; } catch { /* booting */ } await sleep(500); }
+await batchApi("stop"); await sleep(600);
+await open({ h: 1000 }); await startShop(); await sleep(7000);
+await png("health-failure");
+await mock("POST", "/health/shop-db/none");
 console.log("Done.");
 process.exit(0);

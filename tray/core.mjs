@@ -18,24 +18,24 @@ export function pickLang(env = process.env, intl = "en", saved = "") {
 
 const TEXT = {
   en: {
-    open: "Open Docker Gestor", running: "{up} of {total} containers running", none: "No containers",
-    down: "Docker Gestor is not responding", dockerDown: "Docker is not responding", hint: "Start it with: npm start",
+    open: "Open Docker Kong", running: "{up} of {total} containers running", none: "No containers",
+    down: "Docker Kong is not responding", dockerDown: "Docker is not responding", hint: "Start it with: npm start",
     alertsOn: "Alerts on", alertsOff: "Alerts off", muted: "{n} silenced",
     allUntil: "All alerts silenced until {time}", allForever: "All alerts silenced until you lift it",
     fresh1: "1 new alert — open", freshN: "{n} new alerts — open",
     silence: "Silence all alerts for 1 hour", unsilence: "Lift the silence on all alerts",
     start: "Start service", stop: "Stop service", restart: "Restart service", quit: "Quit tray icon",
-    tip: "Docker Gestor — {up}/{total} running", tipDown: "Docker Gestor — not responding", tipFresh: " · {n} new alert(s)",
+    tip: "Docker Kong — {up}/{total} running", tipDown: "Docker Kong — not responding", tipFresh: " · {n} new alert(s)",
   },
   es: {
-    open: "Abrir Docker Gestor", running: "{up} de {total} contenedores en marcha", none: "Sin contenedores",
-    down: "Docker Gestor no responde", dockerDown: "Docker no responde", hint: "Arráncalo con: npm start",
+    open: "Abrir Docker Kong", running: "{up} de {total} contenedores en marcha", none: "Sin contenedores",
+    down: "Docker Kong no responde", dockerDown: "Docker no responde", hint: "Arráncalo con: npm start",
     alertsOn: "Alertas activadas", alertsOff: "Alertas desactivadas", muted: "{n} silenciadas",
     allUntil: "Todas las alertas silenciadas hasta las {time}", allForever: "Todas las alertas silenciadas hasta que lo reactives",
     fresh1: "1 alerta nueva — abrir", freshN: "{n} alertas nuevas — abrir",
     silence: "Silenciar todas las alertas 1 hora", unsilence: "Reactivar todas las alertas",
     start: "Iniciar servicio", stop: "Parar servicio", restart: "Reiniciar servicio", quit: "Salir del icono",
-    tip: "Docker Gestor — {up}/{total} en marcha", tipDown: "Docker Gestor — no responde", tipFresh: " · {n} alerta(s) nueva(s)",
+    tip: "Docker Kong — {up}/{total} en marcha", tipDown: "Docker Kong — no responde", tipFresh: " · {n} alerta(s) nueva(s)",
   },
 };
 const fill = (s, vars = {}) => s.replace(/\{(\w+)\}/g, (_, k) => String(vars[k] ?? `{${k}}`));
@@ -47,7 +47,7 @@ export const activeMutes = (mutes, now) => (Array.isArray(mutes) ? mutes : []).f
 export const freshAlerts = (history, seenAt) => (Array.isArray(history) ? history : []).filter((h) => h && h.ts > seenAt && !NOT_PROBLEMS.has(h.rule)).length;
 
 /**
- * Condenses what the API said. `online`: the Docker Gestor server answered. `containers`: its list, or null when Docker
+ * Condenses what the API said. `online`: the Docker Kong server answered. `containers`: its list, or null when Docker
  * did not answer. `alerts`: /api/alerts/config. `history`: /api/alerts/history.
  */
 export function summarize({ online, containers, alerts, history, seenAt }, now = Date.now()) {

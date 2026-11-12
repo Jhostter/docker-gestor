@@ -1,5 +1,5 @@
 // End-to-end check of the tray icon on Linux, with no real Docker and without touching your service: it runs a second
-// Docker Gestor against the mock Docker, starts the tray pointing at it and drives the icon through D-Bus (StatusNotifierItem
+// Docker Kong against the mock Docker, starts the tray pointing at it and drives the icon through D-Bus (StatusNotifierItem
 // + dbusmenu), exactly as the desktop panel does. It needs a desktop with tray support, so CI does not run it.
 //   npm run build && npm install --prefix tray --ignore-scripts && npm run e2e:tray
 import { spawn, spawnSync } from "node:child_process";
@@ -54,7 +54,7 @@ const shows = await until(() => /\d+ of \d+ containers running/.test(labels().jo
 check(shows, `the menu shows the state: ${JSON.stringify(labels())}`);
 if (!shows) { console.log("--- tray log:\n" + trayLog); process.exit(1); }
 const l0 = labels();
-check(l0[0] === "Open Docker Gestor" && l0.includes("Silence all alerts for 1 hour") && l0.at(-1) === "Quit tray icon" && !l0.some((x) => /service/i.test(x)), "it offers Open, silence and Quit, and no service controls when there is no service");
+check(l0[0] === "Open Docker Kong" && l0.includes("Silence all alerts for 1 hour") && l0.at(-1) === "Quit tray icon" && !l0.some((x) => /service/i.test(x)), "it offers Open, silence and Quit, and no service controls when there is no service");
 check(menuLayout(svc, menuPath).filter((m) => m.sep && m.visible).length === 3, "with separators between the groups");
 check(find(/containers running/)?.enabled === false && find(/Alerts/)?.enabled === false, "status lines are not clickable");
 check(iconNow() === "ok", `the icon is green while everything works (${iconNow()})`);
@@ -75,14 +75,14 @@ await sleep(800); await demo("crash", "shop-api");
 check(await until(() => labels().some((x) => /1 new alert/.test(x)), 20000), "after a crash the menu says there is 1 new alert");
 check(await until(() => iconNow() === "warn"), `and the icon turns amber (${iconNow()})`);
 const fresh = find(/new alert/); click(svc, menuPath, fresh.id);
-check(await until(() => trayLog.includes(`[tray] open ${BASE}`)), "clicking it opens the app (the URL of this Docker Gestor)");
+check(await until(() => trayLog.includes(`[tray] open ${BASE}`)), "clicking it opens the app (the URL of this Docker Kong)");
 check(await until(() => !labels().some((x) => /new alert/.test(x))), "opening the app marks it as seen: the entry goes away");
 check(await until(() => iconNow() === "ok"), `and the icon goes back to green (${iconNow()})`);
 
 /* ---- the server goes away ---- */
 server.kill(); await sleep(300);
-check(await until(() => labels().includes("Docker Gestor is not responding"), 20000), "when Docker Gestor stops answering the menu says so");
-check(labels().includes("Start it with: npm start") && find(/^Open Docker Gestor/)?.enabled === false, "with a hint, and Open disabled because there is nothing to open");
+check(await until(() => labels().includes("Docker Kong is not responding"), 20000), "when Docker Kong stops answering the menu says so");
+check(labels().includes("Start it with: npm start") && find(/^Open Docker Kong/)?.enabled === false, "with a hint, and Open disabled because there is nothing to open");
 check(await until(() => iconNow() === "down"), `and the icon turns grey (${iconNow()})`);
 
 /* ---- one icon per session, and a clean exit ---- */
@@ -100,7 +100,7 @@ const state = () => ctl("is-active", UNIT).stdout.trim();
 if (ctl("--version").status !== 0) console.log("skipped: no systemd user session");
 else {
   const { writeFileSync } = await import("node:fs");
-  writeFileSync(unitFile, "[Unit]\nDescription=Docker Gestor tray e2e (temporary)\n[Service]\nExecStart=/bin/sleep 600\n");
+  writeFileSync(unitFile, "[Unit]\nDescription=Docker Kong tray e2e (temporary)\n[Service]\nExecStart=/bin/sleep 600\n");
   ctl("link", "--runtime", unitFile); ctl("start", UNIT);
   const srv2 = spawn(process.execPath, ["server.mjs"], { env: { ...process.env, PORT: String(PORT), DOCKER_SOCKET: sock, DATA_DIR: tmp }, stdio: "ignore" }); procs.push(srv2);
   for (let i = 0; i < 60; i++) { try { if ((await fetch(BASE)).ok) break; } catch {} await sleep(500); }

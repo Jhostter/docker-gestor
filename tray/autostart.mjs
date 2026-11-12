@@ -10,8 +10,8 @@ export const LABEL = "com.docker-gestor.tray";
 export function desktopEntry({ node, script }) {
   return `[Desktop Entry]
 Type=Application
-Name=Docker Gestor tray icon
-Comment=Status icon for the Docker Gestor service
+Name=Docker Kong tray icon
+Comment=Status icon for the Docker Kong service
 Exec=${desktopArg(node)} ${desktopArg(script)}
 Terminal=false
 NoDisplay=true

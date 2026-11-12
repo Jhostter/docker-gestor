@@ -1,4 +1,4 @@
-// A tiny fake Docker Engine API with fictional data. It lets you try Docker Gestor (and regenerate the
+// A tiny fake Docker Engine API with fictional data. It lets you try Docker Kong (and regenerate the
 // README screenshots) without a Docker daemon and without exposing real containers.
 //   node scripts/demo/mock-docker.mjs /path/to/mock.sock       (then: DOCKER_SOCKET=/path/to/mock.sock npm start)
 import http from "node:http";

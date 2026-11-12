@@ -2,7 +2,7 @@
 
 ## Threat model
 
-Docker Gestor is a **local, single-user** tool. Access to Docker is equivalent to root on the host, so the app binds to `127.0.0.1`, validates `Host`/`Origin` on every request (including the terminal WebSocket) and has **no authentication**. Exposing it to a network or the internet without an authentication layer is unsupported and unsafe.
+Docker Kong is a **local, single-user** tool. Access to Docker is equivalent to root on the host, so the app binds to `127.0.0.1`, validates `Host`/`Origin` on every request (including the terminal WebSocket) and has **no authentication**. Exposing it to a network or the internet without an authentication layer is unsupported and unsafe.
 
 ## Reporting a vulnerability
 

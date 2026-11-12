@@ -64,7 +64,7 @@ test("the menu always has the same slots in the same order (native menus cannot 
 test("online menu: open, state, alerts line, silence and quit — and nothing it cannot do", () => {
   const m = buildMenu(view(), "en", {}, NOW);
   assert.deepEqual(ids(m), ["open", "sep", "status", "alerts", "sep", "silence", "sep", "quit"]);
-  assert.deepEqual(titles(m), ["Open Docker Gestor", "2 of 3 containers running", "Alerts on", "Silence all alerts for 1 hour", "Quit tray icon"]);
+  assert.deepEqual(titles(m), ["Open Docker Kong", "2 of 3 containers running", "Alerts on", "Silence all alerts for 1 hour", "Quit tray icon"]);
   assert.equal(m.icon, "ok"); assert.match(m.tooltip, /2\/3 running/);
   const by = Object.fromEntries(m.items.map((i) => [i.id, i]));
   assert.equal(by.status.enabled, false); assert.equal(by.alerts.enabled, false); assert.equal(by.open.enabled, true);
@@ -81,7 +81,7 @@ test("with a service manager: restart and stop appear when online, start when of
 
 test("offline: says so, offers a hint when it cannot start the server, and the open entry is disabled", () => {
   const m = buildMenu(summarize({ online: false }, NOW), "en", {}, NOW);
-  assert.deepEqual(titles(m), ["Open Docker Gestor", "Docker Gestor is not responding", "Start it with: npm start", "Quit tray icon"]);
+  assert.deepEqual(titles(m), ["Open Docker Kong", "Docker Kong is not responding", "Start it with: npm start", "Quit tray icon"]);
   assert.equal(m.items[0].enabled, false); assert.equal(m.icon, "down");
   const d = buildMenu(view({ containers: null }), "en", {}, NOW);
   assert.ok(titles(d).includes("Docker is not responding") && d.icon === "down" && d.items.find((i) => i.id === "silence").hidden === false, "Docker down: the server still answers, so silencing still works");

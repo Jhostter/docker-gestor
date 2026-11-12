@@ -1,6 +1,6 @@
 import { BRAND, SHAPES } from "./monkey.mjs";
 
-/** The Docker Gestor monkey, drawn from the same shapes as the favicon and the tray icons. */
+/** The Docker Kong monkey, drawn from the same shapes as the favicon and the tray icons. */
 export function Logo({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
