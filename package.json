@@ -42,7 +42,11 @@
     "e2e:health": "node scripts/e2e-health.mjs",
     "e2e:progress": "node scripts/e2e-progress.mjs",
     "e2e:ui": "node scripts/e2e-ui.mjs",
-    "e2e:resilience": "node scripts/e2e-resilience.mjs"
+    "e2e:resilience": "node scripts/e2e-resilience.mjs",
+    "tray": "node tray/tray.mjs",
+    "tray:install": "node tray/install.mjs install",
+    "tray:uninstall": "node tray/install.mjs uninstall",
+    "e2e:tray": "node scripts/e2e-tray.mjs"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.11.0",

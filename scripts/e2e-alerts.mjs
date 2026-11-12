@@ -115,6 +115,16 @@ await demo("oom", "grafana");
 check(await waitFor(() => countOf("oom", "grafana") === 1), "and none of another stack");
 await del("/api/alerts/mute", { kind: "stack", name: "shop" });
 
+// 3c-bis) a silence on everything, with no name, covers containers of every stack and is lifted by itself
+const mAll = await post("/api/alerts/mute", { kind: "all", minutes: 60 });
+check(mAll.status === 200 && mAll.body.mutes.some((m) => m.kind === "all" && m.name === "*" && m.until > Date.now()), "silencing everything needs no name");
+n = got.hook.length; await demo("oom", "grafana"); await demo("oom", "shop-db"); await demo("crash", "mailpit"); await sleep(4500);
+check(got.hook.length === n, "nothing alerts while everything is silenced, whatever the stack");
+const lAll = await del("/api/alerts/mute", { kind: "all" });
+check(lAll.status === 200 && !lAll.body.mutes.some((m) => m.kind === "all"), "lifting it needs no name either");
+await demo("oom", "grafana");
+check(await waitFor(() => got.hook.filter((h) => JSON.parse(h.body).container === "grafana" && JSON.parse(h.body).event === "oom").length === 2), "and alerts come back at once");
+
 // 3d) per-rule exclusions and cooldown, and the switch for recovery messages
 await put({ rules: { oom: { exclude: ["shop-web"] } } });
 n = got.hook.length; await demo("oom", "shop-web"); await sleep(1500);

@@ -474,7 +474,7 @@ function ContainersView({ containers, stats, series, mutes, reloadAlerts, busy, 
               {!folded && (
                 <Card className="divide-y divide-line overflow-hidden">
                   <ColumnHeads sortBy={sortBy} setSort={setSort} />
-                  {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], series: series.byId[c.id], muted: isMutedNow(mutes, c.name, c.project), onMute: () => setMuting(c), onUnmute: () => unmute(c), busy: busy.has(c.id), checked: selected.has(c.id), toggle: () => toggle(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} handle={mode === "custom" ? dragHandle(c) : undefined} dragging={!!drag && drag.includes(c.name)} compact={compact} />)}
+                  {items.map((c) => <Row key={c.id} {...{ c, s: stats[c.id], series: series.byId[c.id], muted: isMutedNow(mutes, c.name, c.project), ownMuted: isMutedNow(mutes, c.name, c.project, { all: false }), onMute: () => setMuting(c), onUnmute: () => unmute(c), busy: busy.has(c.id), checked: selected.has(c.id), toggle: () => toggle(c.id), ctl, del, setLogs, setTerm, setChart, setDetail }} handle={mode === "custom" ? dragHandle(c) : undefined} dragging={!!drag && drag.includes(c.name)} compact={compact} />)}
                 </Card>
               )}
             </div>
@@ -587,7 +587,7 @@ function ColumnHeads({ sortBy, setSort }: { sortBy: string; setSort: (v: "name" 
   );
 }
 
-function Row({ c, s, series, muted, onMute, onUnmute, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart, setDetail, handle, dragging, compact }: { series?: Series; muted?: boolean; onMute: () => void; onUnmute: () => void; compact?: boolean; handle?: { onStart: (e: React.DragEvent) => void; onEnd: () => void }; dragging?: boolean; c: Container; s?: Stat; busy: boolean; checked: boolean; toggle: () => void; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
+function Row({ c, s, series, muted, ownMuted, onMute, onUnmute, busy, checked, toggle, ctl, del, setLogs, setTerm, setChart, setDetail, handle, dragging, compact }: { series?: Series; muted?: boolean; ownMuted?: boolean; onMute: () => void; onUnmute: () => void; compact?: boolean; handle?: { onStart: (e: React.DragEvent) => void; onEnd: () => void }; dragging?: boolean; c: Container; s?: Stat; busy: boolean; checked: boolean; toggle: () => void; ctl: CV["ctl"]; del: CV["del"]; setLogs: CV["setLogs"]; setTerm: CV["setTerm"]; setChart: CV["setChart"]; setDetail: CV["setDetail"] }) {
   const { t } = useT();
   const up = c.state === "running";
   const tone = up ? (/unhealthy/.test(c.status) ? "bad" : /starting/.test(c.status) ? "warn" : "ok") : c.state === "exited" || c.state === "created" ? "muted" : "warn";
@@ -633,7 +633,7 @@ function Row({ c, s, series, muted, onMute, onUnmute, busy, checked, toggle, ctl
           { id: "restart", label: t("act_restart"), icon: "restart", disabled: busy, onSelect: () => ctl(c, "restart") },
           ...(up ? [{ id: "term", label: t("act_term"), icon: "term", onSelect: () => setTerm(c) }] : []),
           { id: "chart", label: t("act_chart"), icon: "chart", onSelect: () => setChart(c) },
-          { id: "mute", label: muted ? t("act_unmute") : t("act_mute"), icon: "bell-off", onSelect: muted ? onUnmute : onMute },
+          { id: "mute", label: ownMuted ? t("act_unmute") : t("act_mute"), icon: "bell-off", onSelect: ownMuted ? onUnmute : onMute }, // a silence on everything is lifted from the Alerts page
           { id: "delete", label: t("delete"), icon: "trash", danger: true, separatorBefore: true, disabled: busy, onSelect: () => del(c) },
         ]} />
       </div>

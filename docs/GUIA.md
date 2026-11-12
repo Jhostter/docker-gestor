@@ -82,6 +82,47 @@ sudo loginctl enable-linger $USER       # si dice Linger=no
 
 > **Tras actualizar el código** hay que recompilar: `git pull && npm install && npm run build && systemctl --user restart docker-gestor` (desde la carpeta del proyecto).
 
+### Icono en la bandeja (opcional)
+
+Un icono pequeño en la bandeja del sistema muestra de un vistazo que el servicio está activo y te da accesos directos sin abrir la página.
+
+```bash
+npm run tray:install                 # lo instala, lo arranca con tu sesión y lo muestra ahora
+npm run tray:install -- --lang es    # idioma del menú: es, en o auto (por defecto, el del sistema)
+npm run tray:uninstall    # lo cierra y quita el arranque automático
+npm run tray              # o ejecútalo en primer plano (Ctrl+C para salir)
+```
+
+| El icono | Significa |
+|---|---|
+| 🟢 verde | Docker Gestor y Docker responden |
+| 🟠 ámbar | Alertas nuevas desde la última vez que abriste la app desde el icono |
+| ⚫ gris | Docker Gestor o Docker no responden |
+
+El menú, en tu idioma (español o inglés, según la configuración regional del sistema):
+
+- **Abrir Docker Gestor** — abre la página en el navegador (y marca las alertas como vistas, con lo que el icono vuelve a verde).
+- **N de M contenedores en marcha**, la **línea de alertas** (activadas / desactivadas, cuántas silenciadas, o *Todas las alertas silenciadas hasta las 15:30*) y, si las hay, **N alertas nuevas — abrir**.
+- **Silenciar todas las alertas 1 hora** / **Reactivar todas las alertas** — el mismo silencio de *todo* que puedes poner en **Alertas → Silenciadas**.
+- **Reiniciar servicio / Parar servicio** (y **Iniciar servicio** si el servidor está caído) — en Linux, cuando existe el servicio systemd de usuario `docker-gestor` de la [sección 2](#instalar-como-servicio). Sin gestor de servicios estas entradas se ocultan y el icono dice cómo arrancarlo.
+- **Salir del icono** — cierra solo el icono, nunca el servicio ni tus contenedores.
+
+Consulta la API local cada 5 s y solo habla con `http://127.0.0.1:4455` (cambia `PORT` si usas otro puerto) y, en Linux, con `systemctl --user`. Nunca toca contenedores. Solo hay un icono por sesión.
+
+**Lo que cuesta** (medido en Linux): unos **110 MB de RAM** — ~80 MB el proceso de Node, ~28 MB el binario de la bandeja — y ~0,25 % de un núcleo. Es más que la propia app (~55 MB), porque es un segundo proceso de Node; si te importa, no instales el extra.
+
+**Dónde funciona**
+
+| | |
+|---|---|
+| Linux | ✅ Verificado en COSMIC con clics reales por D-Bus (`npm run e2e:tray`). En otros escritorios debería funcionar donde haya iconos de bandeja (StatusNotifier / AppIndicator) — KDE y XFCE normalmente los tienen, **GNOME necesita la extensión AppIndicator** — pero solo se ha probado COSMIC. Requiere `libappindicator3` y GTK 3 (en casi todos los escritorios: `sudo apt install libappindicator3-1` si el icono no aparece) |
+| macOS | ⚠️ **Sin probar.** El binario es Intel (x86-64): en Apple Silicon necesita Rosetta. Arranca con un LaunchAgent. Es un binario sin firmar, así que Gatekeeper puede pedirte permiso |
+| Windows | ⚠️ **Sin probar.** Binario x86-64, arranca desde la carpeta Inicio sin ventana de consola. Sin control del servicio |
+
+**Por qué es un extra aparte.** El icono usa [`systray2`](https://github.com/felixhao28/node-systray) (MIT), que trae un **binario precompilado** y no se actualiza desde 2022. Es un compromiso distinto al del resto de la app, así que vive en `tray/` con su propio `package.json` (versión fijada), `tray:install` lo instala con `--ignore-scripts` y la app en sí no tiene esa dependencia. Si no lo instalas, nada cambia. El `chmod` propio del paquete falla en las versiones actuales de Node, así que Docker Gestor copia el binario a `<carpeta de datos>/tray-bin/` y le da permiso de ejecución él mismo.
+
+> El arranque automático guarda la ruta absoluta del `node` con el que se instaló. Si cambias de versión de Node, vuelve a ejecutar `npm run tray:install`.
+
 ## 3. Recorrido por la interfaz
 
 - **Barra lateral** (arriba en móvil): las ocho secciones en dos grupos, **Gestionar** (Contenedores, Compose, Imágenes, Volúmenes, Redes) y **Observar** (Eventos, Alertas, Disco), con un botón de búsqueda arriba. En la parte inferior verás el estado de la conexión (🟢 *Docker conectado*), el cambio de tema, el selector de idioma y la ayuda.
@@ -359,6 +400,7 @@ Para un mantenimiento no hace falta apagar las alertas: **silencia solo lo que t
 
 - Desde la fila: menú **⋯ → Silenciar alertas…**. Elige si es **solo ese contenedor** o **todo su stack**, y **1 hora, 8 horas, 24 horas o hasta que lo reactives**. Los contenedores silenciados llevan una campana tachada (🔕), y el mismo menú ofrece **Reactivar alertas**.
 - Desde **Alertas → Silenciadas**: lista todo lo que está en silencio, con cuándo termina y un botón **Reactivar**; también puedes silenciar por nombre (un contenedor o un stack). En el **Historial**, cada fila tiene una campana para silenciar ese contenedor 1 hora.
+- **Silenciar todo:** en **Alertas → Silenciadas** elige **Todo** (o usa el [icono de bandeja](#icono-en-la-bandeja-opcional)). Cubre todos los contenedores y stacks, también los que crees después, y aparece como *Todas las alertas* en la lista. Las filas muestran la campana mientras dure, y se levanta desde **Alertas → Silenciadas** o desde la bandeja.
 - Un silencio vale para **todas las reglas y todos los canales**, empieza y termina al instante (no hay que pulsar *Guardar cambios*) y caduca solo. Silenciar un stack cubre todos sus contenedores, incluso los detenidos.
 - Se guardan en `alerts.json`; guardar las reglas desde el formulario nunca los quita.
 
@@ -573,6 +615,7 @@ Controlar Docker equivale a tener acceso de administrador a la máquina. Por eso
 ## 19. Desinstalar
 
 ```bash
+npm run tray:uninstall      # solo si instalaste el icono de bandeja
 systemctl --user disable --now docker-gestor
 rm ~/.config/systemd/user/docker-gestor.service
 systemctl --user daemon-reload
@@ -604,6 +647,9 @@ src/app/page.tsx              Interfaz (secciones)
 src/app/ui.tsx                Componentes comunes: botones, modal, avisos, confirmaciones, iconos, menú de acciones, esqueletos
 src/app/Palette.tsx           Paleta de comandos (Ctrl/⌘+K)
 src/lib/palette-core.mjs      Búsqueda y ordenación de la paleta (puro, con pruebas)
+tray/core.mjs                 Menú y estado del icono de bandeja (puro, con pruebas); tray.mjs / install.mjs hacen la E/S
+tray/                         Icono de bandeja opcional: package.json propio (systray2, binario precompilado), iconos, arranque
+scripts/e2e-tray.mjs          Icono de bandeja de punta a punta por D-Bus (solo escritorio Linux; no está en el CI)
 src/app/i18n.ts + locales/    Traducciones (un archivo por idioma)
 src/app/{Logs,Terminal,HistoryChart,CreateForm}.tsx   Ventanas
 src/app/globals.css           Tokens de tema claro/oscuro

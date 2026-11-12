@@ -81,6 +81,7 @@ export const es = {
   mute_scope: "Qué silenciar", mute_this: "Solo este contenedor", mute_stack: "Todo el stack «{stack}»", mute_btn: "Silenciar",
   act_mute: "Silenciar alertas…", act_unmute: "Reactivar alertas", muted_badge: "Alertas silenciadas", mute_done: "Alertas de {name} silenciadas", unmute_done: "Alertas de {name} reactivadas", al_h_mute: "Silenciar {name}",
   err_invalid_mute: "No se pudo silenciar: nombre o duración no válidos.",
+  al_mute_kind_all: "Todo", al_mute_everything: "Todas las alertas", al_mute_all_hint: "Silencia todos los contenedores, también los que crees después.",
   // Métricas
   m_top: "Mayor: {name} · {value}", m_of_host: "de {total}", m_trend_cpu: "Tendencia de CPU de los últimos minutos", m_trend_mem: "Tendencia de memoria de los últimos minutos",
   col_container: "Contenedor", col_state: "Estado", sort_by: "Ordenar por {col}",

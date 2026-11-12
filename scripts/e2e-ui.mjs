@@ -181,6 +181,18 @@ await ev(`[...document.querySelectorAll('button')].find(b=>b.innerText.trim()===
 check(/mailpit/.test(await ev(`[...document.querySelectorAll('h3')].find(h=>h.innerText.toLowerCase()==='silenced').parentElement.innerText`)) && (await mutesNow()).some((m) => m.name === "mailpit"), "a silence added by name appears in the Silenced list");
 await ev(`[...document.querySelectorAll('button')].find(b=>b.innerText.trim()==="Unsilence").click()`); await sleep(900);
 check((await mutesNow()).length === 0, "and can be lifted from there");
+// silence everything from the Alerts page
+await ev(`(()=>{const sel=document.querySelector('select[aria-label="What to silence"]'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(sel,'all'); sel.dispatchEvent(new Event('change',{bubbles:true}))})()`); await sleep(300);
+check(!(await ev(`!!document.querySelector('input[aria-label="container or stack name"]')`)) && /Silences every container/.test(await text()), "choosing Everything removes the name field and explains itself");
+await ev(`[...document.querySelectorAll('button')].find(b=>b.innerText.trim()==="Silence" && b.type==="submit").click()`); await sleep(900);
+check((await mutesNow()).some((m) => m.kind === "all") && /All alerts/.test(await ev(`[...document.querySelectorAll('h3')].find(h=>h.innerText.toLowerCase()==='silenced').parentElement.innerText`)), "silencing everything is saved and listed as All alerts");
+await ev(`[...document.querySelectorAll('nav button')].find(b=>/Containers/.test(b.innerText)).click()`); await sleep(1200);
+check(await ev(`[...document.querySelectorAll('div.grid')].filter(r=>r.querySelector('[data-metric]')).every(r=>/Alerts silenced/.test(r.innerText))`), "every row shows the bell while everything is silenced");
+it = await itemsOf("shop-api");
+check(/Silence alerts…/.test(it) && !/Unsilence alerts/.test(it), "a row's own menu still offers to silence it (the silence on everything is lifted from Alerts)"); await key("Escape");
+await ev(`[...document.querySelectorAll('nav button')].find(b=>/Alerts/.test(b.innerText)).click()`); await sleep(1200);
+await ev(`[...document.querySelectorAll('button')].find(b=>b.innerText.trim()==="Unsilence").click()`); await sleep(900);
+check((await mutesNow()).length === 0, "and it is lifted from the list");
 await ev(`localStorage.setItem("lang","es")`); await load({ lang: "es" });
 await ev(`${menuBtn("shop-api")}.click()`); await sleep(250); await ev(`[...document.querySelectorAll('[role=menuitem]')].find(i=>/Silenciar alertas/.test(i.innerText)).click()`); await sleep(500);
 t = await dlg(); check(/Silenciar alertas de shop-api/.test(t) && /Solo este contenedor/.test(t) && /Todo el stack «shop»/.test(t) && /Hasta que lo reactive/.test(t), "the silence dialog is available in Spanish");

@@ -204,19 +204,20 @@ const untilText = (m: Mute, lang: string, t: ReturnType<typeof useT>["t"]) =>
 function Mutes({ cfg, reload }: { cfg: AlertsPublic; reload: () => Promise<void> }) {
   const { t, lang } = useT();
   const { toast } = useUI();
-  const [kind, setKind] = useState<"container" | "stack">("container");
+  const [kind, setKind] = useState<"container" | "stack" | "all">("container");
   const [name, setName] = useState("");
   const [minutes, setMinutes] = useState<string>("60");
   const [known, setKnown] = useState<string[]>([]);
-  useEffect(() => { api<{ name: string; project?: string | null }[]>("/api/containers").then((l) => setKnown([...new Set(l.map((c) => (kind === "stack" ? c.project : c.name)).filter((x): x is string => !!x))])).catch(() => {}); }, [kind]);
+  useEffect(() => { if (kind === "all") return; api<{ name: string; project?: string | null }[]>("/api/containers").then((l) => setKnown([...new Set(l.map((c) => (kind === "stack" ? c.project : c.name)).filter((x): x is string => !!x))])).catch(() => {}); }, [kind]);
   const active = cfg.mutes.filter((m) => m.until === null || m.until > Date.now());
   const add = async () => {
-    if (!name.trim()) return;
-    try { await post("/api/alerts/mute", { kind, name: name.trim(), minutes: minutes === "" ? null : Number(minutes) }); setName(""); toast("ok", t("mute_done", { name: name.trim() })); await reload(); }
+    const target = kind === "all" ? t("al_mute_everything") : name.trim();
+    if (!target) return;
+    try { await post("/api/alerts/mute", { kind, name: name.trim(), minutes: minutes === "" ? null : Number(minutes) }); setName(""); toast("ok", t("mute_done", { name: target })); await reload(); }
     catch (e) { toast("error", (e as Error).message); }
   };
   const lift = async (m: Mute) => {
-    try { await api("/api/alerts/mute", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: m.kind, name: m.name }) }); toast("ok", t("unmute_done", { name: m.name })); await reload(); }
+    try { await api("/api/alerts/mute", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind: m.kind, name: m.name }) }); toast("ok", t("unmute_done", { name: m.kind === "all" ? t("al_mute_everything") : m.name })); await reload(); }
     catch (e) { toast("error", (e as Error).message); }
   };
   return (
@@ -227,17 +228,18 @@ function Mutes({ cfg, reload }: { cfg: AlertsPublic; reload: () => Promise<void>
         {active.length === 0 ? <p className="px-4 py-3 text-sm text-muted">{t("al_mutes_empty")}</p>
           : active.map((m) => (
             <div key={`${m.kind}:${m.name}`} className="flex flex-wrap items-center gap-3 px-4 py-2 text-sm">
-              <Badge tone="muted">{t(m.kind === "stack" ? "al_mute_kind_stack" : "al_mute_kind_container")}</Badge>
-              <span className="min-w-0 flex-1 truncate font-medium" title={m.name}>{m.name}</span>
+              <Badge tone="muted">{t(m.kind === "stack" ? "al_mute_kind_stack" : m.kind === "all" ? "al_mute_kind_all" : "al_mute_kind_container")}</Badge>
+              <span className="min-w-0 flex-1 truncate font-medium" title={m.name}>{m.kind === "all" ? t("al_mute_everything") : m.name}</span>
               <span className="text-xs text-muted">{untilText(m, lang, t)}</span>
               <Btn onClick={() => lift(m)}>{t("al_unmute")}</Btn>
             </div>))}
         <form className="flex flex-wrap items-end gap-2 px-4 py-3" onSubmit={(e) => { e.preventDefault(); add(); }}>
-          <select aria-label={t("mute_scope")} value={kind} onChange={(e) => setKind(e.target.value as "container" | "stack")} className={`${field}`}><option value="container">{t("al_mute_kind_container")}</option><option value="stack">{t("al_mute_kind_stack")}</option></select>
-          <input aria-label={t("al_mute_name_ph")} list="mute-names" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("al_mute_name_ph")} maxLength={200} className={`${field} min-w-0 flex-1 basis-48`} />
+          <select aria-label={t("mute_scope")} value={kind} onChange={(e) => setKind(e.target.value as "container" | "stack" | "all")} className={`${field}`}><option value="container">{t("al_mute_kind_container")}</option><option value="stack">{t("al_mute_kind_stack")}</option><option value="all">{t("al_mute_kind_all")}</option></select>
+          {kind === "all" ? <span className="min-w-0 flex-1 basis-48 self-center text-sm text-muted">{t("al_mute_all_hint")}</span>
+            : <input aria-label={t("al_mute_name_ph")} list="mute-names" value={name} onChange={(e) => setName(e.target.value)} placeholder={t("al_mute_name_ph")} maxLength={200} className={`${field} min-w-0 flex-1 basis-48`} />}
           <datalist id="mute-names">{known.map((n) => <option key={n} value={n} />)}</datalist>
           <select aria-label={t("mute_for")} value={minutes} onChange={(e) => setMinutes(e.target.value)} className={field}><option value="60">{t("mute_1h")}</option><option value="480">{t("mute_8h")}</option><option value="1440">{t("mute_24h")}</option><option value="">{t("mute_forever")}</option></select>
-          <Btn type="submit" kind="primary" disabled={!name.trim()}>{t("al_mute_add")}</Btn>
+          <Btn type="submit" kind="primary" disabled={kind !== "all" && !name.trim()}>{t("al_mute_add")}</Btn>
         </form>
       </Card>
     </div>

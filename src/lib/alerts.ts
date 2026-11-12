@@ -146,15 +146,17 @@ export function updateConfig(input: unknown) {
   save(s.cfg); apply(s);
 }
 /** Silences alerts for a container or a whole Compose stack: `minutes` null = until removed. */
-export function muteAlerts(kind: "container" | "stack", name: string, minutes: number | null) {
+export function muteAlerts(kind: "container" | "stack" | "all", name: string, minutes: number | null) {
   const s = state();
-  if ((kind !== "container" && kind !== "stack") || typeof name !== "string" || !name.trim() || name.length > 200) throw new ConfigError("invalid_mute");
+  if (kind === "all") name = "*"; // silences everything: no name needed
+  if ((kind !== "container" && kind !== "stack" && kind !== "all") || typeof name !== "string" || !name.trim() || name.length > 200) throw new ConfigError("invalid_mute");
   if (minutes !== null && !(Number.isFinite(minutes) && minutes >= 1 && minutes <= 525600)) throw new ConfigError("invalid_mute");
   s.cfg = { ...s.cfg, mutes: addMute(cleanMutes(s.cfg.mutes), { kind, name: name.trim(), minutes }) };
   save(s.cfg);
 }
-export function unmuteAlerts(kind: "container" | "stack", name: string) {
+export function unmuteAlerts(kind: "container" | "stack" | "all", name: string) {
   const s = state();
+  if (kind === "all") name = "*";
   s.cfg = { ...s.cfg, mutes: removeMute(cleanMutes(s.cfg.mutes), { kind, name }) };
   save(s.cfg);
 }

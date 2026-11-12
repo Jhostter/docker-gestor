@@ -1,7 +1,7 @@
 export type Lang = "es" | "en";
 export type Rule = "died" | "oom" | "unhealthy" | "restartLoop" | "cpu" | "memory";
 export type AlertRule = Rule | "recovered" | "back_up" | "cpu_ok" | "memory_ok" | "test";
-export type Mute = { kind: "container" | "stack"; name: string; until: number | null };
+export type Mute = { kind: "container" | "stack" | "all"; name: string; until: number | null };
 type Common = { exclude: string[]; cooldownMinutes: number | null };
 export type AlertsConfig = {
   enabled: boolean; lang: Lang;

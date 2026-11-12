@@ -362,3 +362,27 @@ test("parseDockerEvent carries the Compose project (so a stack silence works for
   engine.onEvent({ ...ev({ "com.docker.compose.project": "shop" }), action: "oom", id: "zz", name: "ghost" });
   assert.equal(out.length, 0);
 });
+
+test("a silence on everything covers every container and stack, including ones never seen", () => {
+  const { out, ev, cfg, engine, clock } = rig();
+  cfg.mutes = [{ kind: "all", name: "*", until: clock.t + 60_000 }];
+  ev("oom");
+  engine.onEvent({ action: "oom", id: "zzz", name: "db", image: "i", project: "shop" });
+  assert.equal(out.length, 0);
+  assert.equal(isMuted(cfg.mutes, "anything", undefined, clock.t), true);
+  assert.equal(isMuted(cfg.mutes, "anything", undefined, clock.t + 60_001), false, "and it expires");
+  cfg.mutes = []; ev("oom");
+  assert.equal(out.length, 1, "alerts again once lifted");
+});
+
+test("'all' silences have no name to type: the name is forced, duplicates collapse, add/remove work", () => {
+  let m = addMute([], { kind: "all", name: "whatever", minutes: 60 }, 1000);
+  assert.deepEqual(m, [{ kind: "all", name: "*", until: 1000 + 3_600_000 }]);
+  m = addMute(m, { kind: "all", name: "", minutes: null }, 1000);
+  assert.deepEqual(m, [{ kind: "all", name: "*", until: null }], "silencing everything again replaces the old one");
+  assert.deepEqual(cleanMutes([{ kind: "all", until: null }]), [{ kind: "all", name: "*", until: null }], "no name needed in stored data");
+  assert.equal(cleanMutes([{ kind: "everything", name: "*", until: null }]).length, 0, "other kinds are still rejected");
+  assert.deepEqual(removeMute(m, { kind: "all", name: "*" }), []);
+  const c = normalizeConfig({ mutes: [{ kind: "all", until: null }, { kind: "container", name: "api", until: null }] });
+  assert.equal(c.mutes.length, 2);
+});

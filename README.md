@@ -42,6 +42,7 @@ It is **not** a replacement for the bigger tools. Use something else if you need
 - **Container details** — an `inspect` you can read: why it stopped (exit code explained, OOM, restarts), environment, mounts, ports, networks, health history and notable settings (privileged, Docker socket mounted…). Secret-looking values are never sent unless you press *Show*.
 - **Disk usage & safe cleanup** — see where Docker's space goes and free it with a preview: unused build cache, untagged images, stopped containers, unused images and volumes. Nothing is deleted until you confirm, items are removed one by one without `force`, and volumes need an explicit acknowledgement.
 - **Alerts** — get told (browser, **Telegram**, **webhook**) when a container crashes, runs out of memory, turns unhealthy, restarts in a loop or stays at high CPU/RAM, **and when it is over**. **Silence** a container or a whole stack for an hour, a day or until you lift it; ignore containers per rule; set a cooldown per rule. Ignores stops you do yourself; off by default, no measurable cost.
+- **Tray icon** (optional, `npm run tray:install`) — a green / amber / grey icon with *Open*, *silence all alerts for 1 hour* and, on Linux, *start / stop / restart the service*. Verified on Linux; macOS and Windows untested. Costs ~110 MB of RAM, and its only dependency ships a prebuilt binary, so it is a separate extra, not part of the app.
 - **Usage at a glance** — CPU and RAM with meters and **trend lines**, summary cards with the **top consumer**, and **sorting by CPU or RAM**.
 - **Usage history** — CPU/RAM sampled into SQLite and charted over 1 h / 24 h / 7 days; survives restarts.
 - **English and Spanish** (switch in the sidebar), **light and dark theme**, responsive layout, keyboard shortcuts, keyboard-accessible.
@@ -169,6 +170,7 @@ npm run e2e:health   # group start waits for healthy dependencies (real timings)
 npm run e2e:progress # live progress stream and cancelling a group action
 npm run e2e:ui       # interface structure, row menu, command palette, density, skeleton (needs Chrome/Chromium)
 npm run e2e:resilience # stays current: Docker outage, event bursts, late responses (needs Chrome/Chromium)
+npm run e2e:tray     # tray icon over D-Bus, with a throw-away systemd unit (Linux desktop only; not in CI)
 ```
 
 Stack: Next.js (App Router) · React · Tailwind CSS 4 · dockerode · `node:sqlite` · ws · xterm.js. UI strings live in `src/app/locales/` (adding a language is one file).
@@ -185,7 +187,7 @@ Issues and pull requests are welcome — read [CONTRIBUTING.md](CONTRIBUTING.md)
 
 # 🇪🇸 Español
 
-Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos, alertas (Telegram, webhook y navegador; con **silencios** por contenedor o stack y aviso de **recuperación**), consumo con tendencias y ordenación por CPU o RAM, limpieza segura de disco, detalle de contenedor (con secretos ocultos), acciones por stack o selección, grupos propios (también arrastrando y soltando) y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**. La interfaz está en **español e inglés** (selector en la barra lateral).
+Panel web local y ligero para gestionar Docker desde el navegador: contenedores, logs en vivo, terminal interactiva, Compose, imágenes, volúmenes, redes, eventos, alertas (Telegram, webhook y navegador; con **silencios** por contenedor o stack y aviso de **recuperación**), consumo con tendencias y ordenación por CPU o RAM, icono de bandeja opcional, limpieza segura de disco, detalle de contenedor (con secretos ocultos), acciones por stack o selección, grupos propios (también arrastrando y soltando) y gráficas de consumo con historial. En reposo usa **~0,2–0,5 % de un núcleo y ~55 MB de RAM**. La interfaz está en **español e inglés** (selector en la barra lateral).
 
 **Pensado para una persona y una máquina:** sin servidor de base de datos, sin agente y sin cuentas; solo escucha en `127.0.0.1` y no hace trabajo mientras nadie mira la página. Si necesitas varios usuarios, varios hosts o Kubernetes, usa una herramienta más grande (Portainer y similares).
 

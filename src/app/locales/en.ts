@@ -83,6 +83,7 @@ export const en: Record<keyof typeof es, string> = {
   mute_scope: "What to silence", mute_this: "Only this container", mute_stack: "The whole “{stack}” stack", mute_btn: "Silence",
   act_mute: "Silence alerts…", act_unmute: "Unsilence alerts", muted_badge: "Alerts silenced", mute_done: "Alerts for {name} silenced", unmute_done: "Alerts for {name} back on", al_h_mute: "Silence {name}",
   err_invalid_mute: "Could not silence: invalid name or duration.",
+  al_mute_kind_all: "Everything", al_mute_everything: "All alerts", al_mute_all_hint: "Silences every container, including ones you create later.",
   // Metrics
   m_top: "Top: {name} · {value}", m_of_host: "of {total}", m_trend_cpu: "CPU trend over the last minutes", m_trend_mem: "Memory trend over the last minutes",
   col_container: "Container", col_state: "State", sort_by: "Sort by {col}",

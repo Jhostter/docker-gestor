@@ -9,6 +9,7 @@
 | CI: server boots, serves the UI, rejects foreign origins, readable error without Docker | ✅ | ✅ | ✅ |
 | Verified against a real Docker daemon | ✅ | ❌ not yet | ❌ not yet |
 | Autostart | `scripts/install-service.sh` (systemd) | launchd — manual, **untested** | Task Scheduler — manual, **untested** |
+| Optional tray icon (`npm run tray:install`) | ✅ verified on COSMIC (needs `libappindicator3` + GTK 3; GNOME needs the AppIndicator extension) | ⚠️ **untested**, Intel binary (Rosetta on Apple Silicon) | ⚠️ **untested**, x86-64 binary |
 
 **Honest summary:** the app is portable code (Node + `dockerode` + the built-in SQLite) and CI proves it builds and boots on all three systems. What CI cannot prove is the integration with Docker Desktop / Colima / etc. on macOS and Windows, because the runners have no usable Docker daemon for it. If you try it there, please open an issue or a pull request updating this table — reports from real machines are the missing piece.
 

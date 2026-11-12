@@ -77,6 +77,47 @@ sudo loginctl enable-linger $USER       # if it says Linger=no
 
 > **After updating the code** rebuild: `git pull && npm install && npm run build && systemctl --user restart docker-gestor` (from the project folder).
 
+### Tray icon (optional)
+
+A small icon in the system tray shows at a glance that the service is up, and gives you shortcuts without opening the page.
+
+```bash
+npm run tray:install                 # installs it, starts it with your session and shows it now
+npm run tray:install -- --lang es    # menu language: es, en or auto (default: your system locale)
+npm run tray:uninstall    # quits it and removes the autostart entry
+npm run tray              # or run it in the foreground (Ctrl+C to quit)
+```
+
+| The icon | Means |
+|---|---|
+| 🟢 green | Docker Gestor and Docker answer |
+| 🟠 amber | New alerts since you last opened the app from the icon |
+| ⚫ grey | Docker Gestor or Docker does not answer |
+
+The menu, in your language (Spanish or English, from your system locale):
+
+- **Open Docker Gestor** — opens the page in your browser (and marks alerts as seen, turning the icon green again).
+- **N of M containers running**, the **alerts line** (on / off, how many silenced, or *All alerts silenced until 15:30*) and, when there are some, **N new alerts — open**.
+- **Silence all alerts for 1 hour** / **Lift the silence on all alerts** — the same *everything* silence you can set in **Alerts → Silenced**.
+- **Restart service / Stop service** (and **Start service** when the server is down) — on Linux, when the systemd user service `docker-gestor` from [section 2](#install-as-a-service-linux) exists. Without a service manager these entries are hidden and the icon says how to start it.
+- **Quit tray icon** — closes only the icon, never the service or your containers.
+
+It checks the local API every 5 s and only talks to `http://127.0.0.1:4455` (set `PORT` if you changed it) and, on Linux, to `systemctl --user`. It never touches containers. Only one icon runs per session.
+
+**What it costs** (measured on Linux): about **110 MB of RAM** — ~80 MB the Node process, ~28 MB the tray binary — and ~0.25 % of one CPU core. That is more than the app itself (~55 MB), because it is a second Node process; if that matters, leave the extra out.
+
+**Where it works**
+
+| | |
+|---|---|
+| Linux | ✅ Verified on COSMIC with real clicks through D-Bus (`npm run e2e:tray`). Other desktops should work wherever tray icons (StatusNotifier / AppIndicator) are supported — KDE and XFCE normally are, **GNOME needs the AppIndicator extension** — but only COSMIC has been tried. Needs `libappindicator3` and GTK 3 (present on most desktops: `sudo apt install libappindicator3-1` if the icon does not appear) |
+| macOS | ⚠️ **Untested.** The binary is Intel (x86-64): on Apple Silicon it needs Rosetta. Starts with a LaunchAgent. It is an unsigned binary, so Gatekeeper may ask you to allow it |
+| Windows | ⚠️ **Untested.** x86-64 binary, started from the Startup folder with no console window. No service controls |
+
+**Why it is a separate extra.** The icon uses [`systray2`](https://github.com/felixhao28/node-systray) (MIT), which ships a **prebuilt binary** and has not been updated since 2022. That is a different trade-off from the rest of the app, so it lives in `tray/` with its own `package.json` (the version is pinned), `tray:install` installs it with `--ignore-scripts`, and the app itself has no such dependency. Skip the extra and nothing changes. The package's own `chmod` of that binary fails on current Node, so Docker Gestor copies it to `<data folder>/tray-bin/` and makes it executable itself.
+
+> The autostart entry stores the absolute path of the `node` that installed it. After changing Node versions, run `npm run tray:install` again.
+
 ## 3. Interface tour
 
 - **Sidebar** (on top on mobile): the eight sections in two groups, **Manage** (Containers, Compose, Images, Volumes, Networks) and **Observe** (Events, Alerts, Disk), with a search button at the top. At the bottom: connection status (🟢 *Docker connected*), theme, language and help.
@@ -353,6 +394,7 @@ For maintenance there is no need to switch alerts off: **silence only what you n
 
 - From the row: **⋯ menu → Silence alerts…**. Choose **just that container** or **its whole stack**, and **1 hour, 8 hours, 24 hours or until you lift it**. Silenced containers carry a crossed-out bell (🔕), and the same menu offers **Unsilence alerts**.
 - From **Alerts → Silenced**: lists everything that is silent, when it ends and an **Unsilence** button; you can also silence by name (a container or a stack). In the **History**, every row has a bell that silences that container for 1 hour.
+- **Silence everything:** in **Alerts → Silenced** choose **Everything** (or use the [tray icon](#tray-icon-optional)). It covers every container and stack, including ones you create later, and shows as *All alerts* in the list. Rows show the bell while it lasts, and it is lifted from **Alerts → Silenced** or the tray.
 - A silence covers **every rule and every channel**, starts and ends at once (no need to press *Save changes*) and expires by itself. Silencing a stack covers all its containers, stopped ones included.
 - They are stored in `alerts.json`; saving the rules from the form never removes them.
 
@@ -542,6 +584,7 @@ Controlling Docker is equivalent to having admin rights on the machine. Therefor
 ## 19. Uninstall
 
 ```bash
+npm run tray:uninstall      # only if you installed the tray icon
 systemctl --user disable --now docker-gestor
 rm ~/.config/systemd/user/docker-gestor.service
 systemctl --user daemon-reload
@@ -576,6 +619,9 @@ src/app/page.tsx              The UI (sections)
 src/app/ui.tsx                Shared components: buttons, modal, toasts, confirmations, icons, actions menu, skeletons
 src/app/Palette.tsx           Command palette (Ctrl/⌘+K)
 src/lib/palette-core.mjs      Palette search and ranking (pure, unit-tested)
+tray/core.mjs                 Tray icon menu and state (pure, unit-tested); tray.mjs / install.mjs do the I/O
+tray/                         Optional tray icon: own package.json (systray2, prebuilt binary), icons, autostart builders
+scripts/e2e-tray.mjs          Tray icon end-to-end over D-Bus (Linux desktop only; not in CI)
 src/app/i18n.ts + locales/    Translations (one file per language)
 src/app/{Logs,Terminal,HistoryChart,CreateForm}.tsx   Windows
 src/app/api/**                REST API and SSE streams

@@ -48,7 +48,7 @@ export const post = <T = unknown>(url: string, body?: unknown) =>
   api<T>(url, { method: "POST", headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
 
 /** An alert silence: by container name or by Compose stack; `until` null = until it is lifted. */
-export type Mute = { kind: "container" | "stack"; name: string; until: number | null };
-/** Is this container silenced right now, by its own name or by its stack? */
-export const isMutedNow = (mutes: Mute[] | undefined, name: string, project?: string | null) =>
-  (mutes ?? []).some((m) => (m.until === null || m.until > Date.now()) && (m.kind === "container" ? m.name === name : !!project && m.name === project));
+export type Mute = { kind: "container" | "stack" | "all"; name: string; until: number | null };
+/** Is this container silenced right now? By its own name, by its stack and, unless `all` is false, by the silence on everything. */
+export const isMutedNow = (mutes: Mute[] | undefined, name: string, project?: string | null, { all = true } = {}) =>
+  (mutes ?? []).some((m) => (m.until === null || m.until > Date.now()) && (m.kind === "all" ? all : m.kind === "container" ? m.name === name : !!project && m.name === project));

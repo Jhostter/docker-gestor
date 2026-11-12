@@ -3,7 +3,7 @@ import { getPublicConfig, muteAlerts, startAlerts, unmuteAlerts } from "@/lib/al
 import { ConfigError } from "@/lib/alerts-core.mjs";
 export const dynamic = "force-dynamic";
 
-/** Silence alerts for a container or a Compose stack. Body: { kind: "container" | "stack", name, minutes: number | null }. */
+/** Silence alerts for a container, a Compose stack or everything. Body: { kind: "container" | "stack" | "all", name (not needed for "all"), minutes: number | null }. */
 export async function POST(req: Request) {
   const g = guard(req); if (g) return g;
   startAlerts();

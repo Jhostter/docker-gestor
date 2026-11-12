@@ -42,23 +42,24 @@ const cooldownOf = (v, d) => (v === undefined ? d : v === null || v === "" ? nul
 export function cleanMutes(list, now = Date.now()) {
   const out = new Map();
   for (const m of Array.isArray(list) ? list : []) {
-    const name = String(m?.name ?? "").trim(), kind = m?.kind;
+    const kind = m?.kind, name = kind === "all" ? "*" : String(m?.name ?? "").trim(); // "all" silences everything and has no name
     const until = m?.until === null ? null : Number(m?.until);
-    if (!name || name.length > 200 || (kind !== "container" && kind !== "stack")) continue;
+    if (!name || name.length > 200 || (kind !== "container" && kind !== "stack" && kind !== "all")) continue;
     if (until !== null && !(Number.isFinite(until) && until > now)) continue;
     out.set(`${kind}:${name}`, { kind, name, until });
   }
   return [...out.values()].slice(0, 200);
 }
-/** Pure helpers behind the "silence" feature. `minutes` null = until the user removes it. */
+/** Pure helpers behind the "silence" feature. `kind` is "container", "stack" or "all" (everything). `minutes` null = until the user removes it. */
 export function addMute(mutes, { kind, name, minutes }, now = Date.now()) {
   const until = minutes === null || minutes === undefined ? null : now + clamp(minutes, 1, 525600, 60) * 60000;
+  if (kind === "all") name = "*";
   return cleanMutes([...mutes.filter((m) => !(m.kind === kind && m.name === name)), { kind, name, until }], now);
 }
 export const removeMute = (mutes, { kind, name }) => mutes.filter((m) => !(m.kind === kind && m.name === name));
 /** Is this container silenced, by its own name or by its Compose stack? */
 export function isMuted(mutes, name, project, now = Date.now()) {
-  return (mutes ?? []).some((m) => (m.until === null || m.until > now) && (m.kind === "container" ? m.name === name : !!project && m.name === project));
+  return (mutes ?? []).some((m) => (m.until === null || m.until > now) && (m.kind === "all" || (m.kind === "container" ? m.name === name : !!project && m.name === project)));
 }
 // Secrets: undefined/null keeps the stored value, a string (even empty) replaces it.
 const secret = (incoming, existing) => (incoming === undefined || incoming === null ? existing : String(incoming).trim());

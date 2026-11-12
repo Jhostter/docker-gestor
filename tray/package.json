@@ -1,0 +1,11 @@
+{
+  "name": "docker-gestor-tray",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Optional system tray icon for Docker Gestor. Its only dependency ships a prebuilt binary, which is why it lives apart from the app.",
+  "license": "MIT",
+  "dependencies": {
+    "systray2": "2.1.4"
+  }
+}
