@@ -53,8 +53,8 @@ systemctl --user status docker-gestor
 ### Instalar como servicio
 
 ```bash
-git clone https://github.com/Jhostter/docker-gestor.git
-cd docker-gestor
+git clone https://github.com/Jhostter/docker-kong.git
+cd docker-kong
 npm install            # solo la primera vez
 ./scripts/install-service.sh
 ```

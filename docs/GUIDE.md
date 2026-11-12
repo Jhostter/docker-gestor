@@ -32,8 +32,8 @@ A local web dashboard to manage Docker from your browser: containers, logs, term
 ## 1. Quick start
 
 ```bash
-git clone https://github.com/Jhostter/docker-gestor.git
-cd docker-gestor
+git clone https://github.com/Jhostter/docker-kong.git
+cd docker-kong
 npm install
 npm run build
 npm start

@@ -4,7 +4,7 @@
 
 **A lightweight, local web dashboard for Docker — in about 55 MB of RAM.**
 
-[![CI](https://github.com/Jhostter/docker-gestor/actions/workflows/ci.yml/badge.svg)](https://github.com/Jhostter/docker-gestor/actions/workflows/ci.yml)
+[![CI](https://github.com/Jhostter/docker-kong/actions/workflows/ci.yml/badge.svg)](https://github.com/Jhostter/docker-kong/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Node 22.13+](https://img.shields.io/badge/node-%E2%89%A522.13-339933)
 ![UI: English · Español](https://img.shields.io/badge/UI-English%20%C2%B7%20Espa%C3%B1ol-informational)
@@ -90,8 +90,8 @@ macOS and Windows should work (Docker Desktop, Colima, Rancher Desktop and OrbSt
 ## Quick start
 
 ```bash
-git clone https://github.com/Jhostter/docker-gestor.git
-cd docker-gestor
+git clone https://github.com/Jhostter/docker-kong.git
+cd docker-kong
 npm install
 npm run build
 npm start            # http://localhost:4455 (same commands on Linux, macOS and Windows)
@@ -196,8 +196,8 @@ Panel web local y ligero para gestionar Docker desde el navegador: contenedores,
 **Inicio rápido**
 
 ```bash
-git clone https://github.com/Jhostter/docker-gestor.git
-cd docker-gestor
+git clone https://github.com/Jhostter/docker-kong.git
+cd docker-kong
 npm install && npm run build && npm start     # http://localhost:4455
 ```
 

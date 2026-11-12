@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+- **The repository is now `Jhostter/docker-kong`.** GitHub redirects the old `docker-gestor` address (links, `git clone`, issues). The systemd service and the data folder keep the name `docker-gestor`, so existing installs are unaffected; if you cloned the old address, run `git remote set-url origin https://github.com/Jhostter/docker-kong.git`.
+
 ## [0.9.0] - 2026-11-12
 
 ### Changed

@@ -12,8 +12,8 @@ Thanks for your interest! / ¡Gracias por tu interés!
 ## Getting started
 
 ```bash
-git clone https://github.com/Jhostter/docker-gestor.git
-cd docker-gestor
+git clone https://github.com/Jhostter/docker-kong.git
+cd docker-kong
 npm install
 npm run dev          # http://localhost:4455  (stop the systemd service first if you installed it)
 ```

@@ -7,11 +7,11 @@
   "private": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Jhostter/docker-gestor.git"
+    "url": "git+https://github.com/Jhostter/docker-kong.git"
   },
-  "homepage": "https://github.com/Jhostter/docker-gestor#readme",
+  "homepage": "https://github.com/Jhostter/docker-kong#readme",
   "bugs": {
-    "url": "https://github.com/Jhostter/docker-gestor/issues"
+    "url": "https://github.com/Jhostter/docker-kong/issues"
   },
   "keywords": [
     "docker",
