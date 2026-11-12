@@ -4,6 +4,9 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+- **New brand: a monkey** replaces the whale emoji. One drawing (`src/app/monkey.mjs`) generates the sidebar logo, the favicon (`src/app/icon.svg`), the README logo (`docs/img/logo.svg`), the social preview and the tray icons (`node tray/make-icons.mjs`). In the tray the monkey takes the status colour (green / amber / grey); the app and its name are unchanged.
+
 ### Added
 - **Tray icon** (optional): `npm run tray:install` puts a green / amber / grey icon in the system tray and starts it with your session; `npm run tray:uninstall` removes it. Menu: *Open Docker Gestor*, containers running, alerts line, *N new alerts — open*, *Silence all alerts for 1 hour* / *Lift the silence*, and on Linux *Start / Restart / Stop service* for the systemd user service. In Spanish or English by system locale; one icon per session; it only talks to the local API and `systemctl --user`.
 - **Silence everything** (`kind: "all"`): one silence that covers every container and stack, including ones created later. Available in **Alerts → Silenced** and from the tray icon; `POST` / `DELETE /api/alerts/mute` take `{ "kind": "all" }` with no name.

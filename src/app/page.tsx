@@ -3,6 +3,7 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, post, postStream, bytes, ago, isMutedNow, type Mute } from "./format";
 import { emptySeries, hostMemory, pushSeries, sortContainers, topConsumer, type Series, type SeriesStore } from "./metrics-core.mjs";
+import { Logo } from "./Logo";
 import { useT, setLang, hasKey, type Key } from "./i18n";
 import { planMove } from "../lib/groups-core.mjs";
 import { Badge, Btn, Card, Chips, Empty, Icon, ListSkeleton, Menu, Meter, Modal, SearchBox, Spark, Spinner, UIProvider, useUI } from "./ui";
@@ -256,7 +257,7 @@ function App() {
   return (
     <div className="mx-auto flex min-h-screen max-w-[88rem] flex-col md:flex-row">
       <aside className="shrink-0 border-b border-line md:sticky md:top-0 md:h-screen md:w-56 md:border-b-0 md:border-r">
-        <div className="flex items-center gap-2 px-4 py-3 md:pb-3 md:pt-5"><span className="text-xl" aria-hidden>🐳</span><h1 className="font-bold">Docker Gestor</h1>
+        <div className="flex items-center gap-2 px-4 py-3 md:pb-3 md:pt-5"><Logo className="size-7 shrink-0" /><h1 className="font-bold">Docker Gestor</h1>
           <button onClick={() => setPalette(true)} aria-label={t("pal_trigger")} className="ml-auto flex size-8 items-center justify-center rounded-md text-muted hover:bg-surface2 hover:text-fg md:hidden"><Icon name="search" /></button></div>
         <div className="hidden px-3 pb-2 md:block">
           <button onClick={() => setPalette(true)} className="flex w-full items-center gap-2 rounded-md border border-line bg-surface px-2.5 py-1.5 text-left text-sm text-muted transition hover:border-accent/50 hover:text-fg">

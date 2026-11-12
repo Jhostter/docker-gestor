@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🐳 Docker Gestor
+# <img src="docs/img/logo.svg" alt="" width="40" align="absmiddle"> Docker Gestor
 
 **A lightweight, local web dashboard for Docker — in about 55 MB of RAM.**
 

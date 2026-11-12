@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import WebSocket from "ws";
+import { monkeySvg } from "../../src/app/monkey.mjs";
 
 const OUT = resolve(process.argv[2] ?? "docs/img");
 const PORT = 4488, CDP = 9444, BASE = `http://localhost:${PORT}`;
@@ -133,7 +134,7 @@ const html = `<!doctype html><meta charset=utf-8><style>*{box-sizing:border-box}
 h1{font-size:62px;margin:0;letter-spacing:-1px;white-space:nowrap}p{font-size:30px;color:#9a9aa8;margin:18px 0 0;line-height:1.35}.l{position:absolute;left:70px;top:120px;width:560px}
 .chips{margin-top:34px;display:flex;flex-wrap:wrap;gap:10px}.chips span{background:#1c1c23;border:1px solid #2a2a33;border-radius:999px;padding:8px 18px;font-size:22px;color:#ececf1}
 img{position:absolute;left:640px;top:150px;width:900px;border-radius:14px;border:1px solid #2a2a33;box-shadow:0 30px 80px #000a}</style>
-<div class=l><h1>🐳 Docker Gestor</h1><p>A lightweight, local web dashboard for Docker.</p><div class=chips><span>~55 MB RAM</span><span>live logs</span><span>terminal</span><span>Compose</span><span>usage history</span></div></div><img src="data:image/png;base64,${shot}">`;
+<div class=l><h1><span style="display:inline-block;width:64px;vertical-align:-10px;margin-right:14px">${monkeySvg()}</span>Docker Gestor</h1><p>A lightweight, local web dashboard for Docker.</p><div class=chips><span>~55 MB RAM</span><span>live logs</span><span>terminal</span><span>Compose</span><span>usage history</span></div></div><img src="data:image/png;base64,${shot}">`;
 await send("Page.navigate", { url: "data:text/html;base64," + Buffer.from(html).toString("base64") }); await sleep(800); await png("social-preview");
 
 // 4) demo GIF: record frames while driving the UI

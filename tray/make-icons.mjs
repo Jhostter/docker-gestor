@@ -1,6 +1,8 @@
-// Generates the three tray icons (ok / warn / down) as PNG (Linux, macOS) and ICO (Windows) with no dependencies:
+// Generates the monkey mark from src/app/monkey.mjs: the three tray icons (ok / warn / down) as PNG (Linux, macOS) and ICO
+// (Windows) with no dependencies, plus the favicon (src/app/icon.svg) and the logo (docs/img/logo.svg):
 //   node tray/make-icons.mjs
 import { writeFileSync } from "node:fs";
+import { BRAND, monkeySvg, roleAt } from "../src/app/monkey.mjs"; // the same drawing as the app logo
 import { deflateSync } from "node:zlib";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,15 +10,19 @@ import { fileURLToPath } from "node:url";
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "icons"), N = 32;
 const COLORS = { ok: [34, 197, 94], warn: [245, 158, 11], down: [139, 139, 148] };
 
-/** RGBA pixels: a coloured disc with a white stack of containers (the Docker-ish glyph), anti-aliased at the edge. */
+/** RGBA pixels of the monkey in a status colour, anti-aliased by 4x4 supersampling. Transparent background so it works on light and dark panels. */
 function draw([r, g, b]) {
-  const px = Buffer.alloc(N * N * 4), c = (N - 1) / 2;
-  const boxes = [[7, 17], [13, 17], [19, 17], [10, 11], [16, 11], [13, 5]].map(([x, y]) => ({ x, y, w: 5, h: 5 })); // 3 + 2 + 1 squares
+  const px = Buffer.alloc(N * N * 4), S = 4;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-    const d = Math.hypot(x - c, y - c), a = Math.max(0, Math.min(1, 15.5 - d)); // coverage of the disc edge
-    const white = boxes.some((s) => x >= s.x && x < s.x + s.w && y >= s.y && y < s.y + s.h);
-    const i = (y * N + x) * 4;
-    px[i] = white ? 255 : r; px[i + 1] = white ? 255 : g; px[i + 2] = white ? 255 : b; px[i + 3] = Math.round(a * 255);
+    let cover = 0, rs = 0, gs = 0, bs = 0;
+    for (let j = 0; j < S; j++) for (let i = 0; i < S; i++) {
+      const v = roleAt(x + (i + 0.5) / S, y + (j + 0.5) / S);
+      if (!v) continue;
+      const white = v === "face"; // fur and features take the status colour; the face is white
+      cover++; rs += white ? 255 : r; gs += white ? 255 : g; bs += white ? 255 : b;
+    }
+    const o = (y * N + x) * 4;
+    if (cover) { px[o] = rs / cover; px[o + 1] = gs / cover; px[o + 2] = bs / cover; px[o + 3] = Math.round((255 * cover) / (S * S)); }
   }
   return px;
 }
@@ -42,3 +48,7 @@ for (const [name, rgb] of Object.entries(COLORS)) {
   writeFileSync(join(OUT, `${name}.png`), data); writeFileSync(join(OUT, `${name}.ico`), ico(data));
   console.log(name, data.length, "bytes");
 }
+const ROOT = join(OUT, "..", "..");
+writeFileSync(join(ROOT, "src", "app", "icon.svg"), monkeySvg(BRAND) + "\n");
+writeFileSync(join(ROOT, "docs", "img", "logo.svg"), monkeySvg(BRAND, { size: 128 }) + "\n");
+console.log("icon.svg, logo.svg");
