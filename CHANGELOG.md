@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-12
+
 ### Changed
 - **Renamed to Docker Kong.** Only the name people see changes: the service (`docker-gestor`), the data folder and the repository address keep their names, so nothing already installed breaks.
 - **New brand: a monkey** replaces the whale emoji. One drawing (`src/app/monkey.mjs`) generates the sidebar logo, the favicon (`src/app/icon.svg`), the README logo (`docs/img/logo.svg`), the social preview and the tray icons (`node tray/make-icons.mjs`). In the tray the monkey takes the status colour (green / amber / grey).
